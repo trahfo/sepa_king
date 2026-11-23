@@ -15,12 +15,30 @@ We love building payment applications! So after developing the [DTAUS library fo
 
 This gem implements the following two messages out of the ISO 20022 standard:
 
-* Credit Transfer Initiation (`pain.001.003.03`, `pain.001.002.03` and `pain.001.001.03`)
-* Direct Debit Initiation (`pain.008.003.02`, `pain.008.002.02` and `pain.008.001.02`)
+| Message | ISO 2019 (current) | ISO 2009 (legacy) |
+|---|---|---|
+| Credit Transfer Initiation | `pain.001.001.09` | `pain.001.001.03`, `pain.001.002.03`, `pain.001.003.03`, `pain.001.001.03.ch.02` |
+| Direct Debit Initiation | `pain.008.001.08` | `pain.008.001.02`, `pain.008.002.02`, `pain.008.003.02` |
 
-It handles the _Specification of Data Formats_ v3.3 (2019-11-17).
+The 2019 versions are validated against the Technical Validation Subsets of the
+Deutsche Kreditwirtschaft (DFÜ-Abkommen Anlage 3, GBIC_4), the strictest
+EPC-conformant variant. Every generated file passes the XSD of its schema
+before it is returned.
 
 BTW: **pain** is a shortcut for **Pa**yment **In**itiation.
+
+> **November 2026:** German banks no longer accept the 2009 versions
+> (`pain.001.001.03`, `pain.008.001.02`). Use `pain.001.001.09` / `pain.008.001.08`:
+>
+> ```ruby
+> sdd.to_xml(SEPA::PAIN_008_001_08)
+> sct.to_xml(SEPA::PAIN_001_001_09)
+> ```
+>
+> These schemas only accept **structured addresses**: if you pass an address,
+> it needs at least `town_name` and `country_code` and no `address_line1/2`.
+> Passing no address at all is fine. `to_xml` without an argument still uses
+> the 2009 version; this default changes in 1.0.
 
 
 ## Requirements
@@ -56,7 +74,11 @@ sdd = SEPA::DirectDebit.new(
 
   # Creditor Identifier, in German: Gläubiger-Identifikationsnummer
   # String, max. 35 chars
-  creditor_identifier: 'DE98ZZZ09999999999'
+  creditor_identifier: 'DE98ZZZ09999999999',
+
+  # OPTIONAL: Postal address of the creditor (Hash or SEPA::CreditorAddress)
+  address: { street_name: 'Hauptstraße', building_number: '1', post_code: '10115',
+             town_name: 'Berlin', country_code: 'DE' }
 )
 
 # Second: Add transactions
@@ -149,8 +171,9 @@ sdd.add_transaction(
 sdd.add_transaction ...
 
 # Last: create XML string
-xml_string = sdd.to_xml                    # Use schema pain.008.001.02
-xml_string = sdd.to_xml('pain.008.002.02') # Use schema pain.008.002.02
+xml_string = sdd.to_xml(SEPA::PAIN_008_001_08) # Use schema pain.008.001.08 (recommended)
+xml_string = sdd.to_xml('pain.008.002.02')     # Use schema pain.008.002.02
+xml_string = sdd.to_xml                        # Use schema pain.008.001.02 (default until 1.0)
 ```
 
 
@@ -240,9 +263,36 @@ sct.add_transaction(
 sct.add_transaction ...
 
 # Last: create XML string
-xml_string = sct.to_xml                    # Use schema pain.001.001.03
-xml_string = sct.to_xml('pain.001.002.03') # Use schema pain.001.002.03
+xml_string = sct.to_xml(SEPA::PAIN_001_001_09) # Use schema pain.001.001.09 (recommended)
+xml_string = sct.to_xml('pain.001.002.03')     # Use schema pain.001.002.03
+xml_string = sct.to_xml                        # Use schema pain.001.001.03 (default until 1.0)
 ```
+
+## Addresses
+
+`SEPA::Address` (and its subclasses `SEPA::DebtorAddress`, `SEPA::CreditorAddress`)
+supports every element of ISO 20022 `PostalAddress24`. Wherever an address is
+accepted you can also pass a Hash:
+
+| Attribute | XML | Max |
+|---|---|---|
+| `department`, `sub_department` | `Dept`, `SubDept` | 70 |
+| `street_name`, `building_number`, `building_name` | `StrtNm`, `BldgNb`, `BldgNm` | 70, 16, 35 |
+| `floor`, `post_box`, `room` | `Flr`, `PstBx`, `Room` | 70, 16, 70 |
+| `post_code`, `town_name`, `town_location_name` | `PstCd`, `TwnNm`, `TwnLctnNm` | 16, 35, 35 |
+| `district_name`, `country_sub_division`, `country_code` | `DstrctNm`, `CtrySubDvsn`, `Ctry` | 35, 35, 2 |
+| `address_line1`, `address_line2` | `AdrLine` | 70 |
+
+The 2009 schemas only write the elements they know (`Dept`, `SubDept`, `StrtNm`,
+`BldgNb`, `PstCd`, `TwnNm`, `CtrySubDvsn`, `Ctry`, `AdrLine`). The 2019 schemas
+write all of them and require a structured address (`town_name` and
+`country_code`, no address lines); otherwise `schema_compatible?` returns
+false and `to_xml` raises `SEPA::Error`.
+
+The account holder's address goes into the message itself
+(`SEPA::DirectDebit.new(..., address: {...})` for the creditor,
+`SEPA::CreditTransfer.new(..., address: {...})` for the debtor).
+
 
 ## Validations
 
@@ -303,6 +353,7 @@ https://github.com/salesking/sepa_king/graphs/contributors
 ## Resources
 
 * https://www.ebics.de/de/datenformate
+* EPC rulebooks and implementation guidelines: https://www.europeanpaymentscouncil.eu/what-we-do/epc-payment-schemes
 * SalesKing: http://salesking.eu
 
 

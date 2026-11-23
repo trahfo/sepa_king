@@ -16,9 +16,8 @@ module SEPA
                   :remittance_information,
                   :requested_date,
                   :batch_booking,
-                  :currency,
-                  :debtor_address,
-                  :creditor_address
+                  :currency
+    attr_reader :debtor_address, :creditor_address
 
     convert :name, :instruction, :reference, :remittance_information, to: :text
     convert :amount, to: :decimal
@@ -44,7 +43,21 @@ module SEPA
       self.currency ||= 'EUR'
     end
 
+    # Accepts a DebtorAddress or a Hash of its attributes.
+    def debtor_address=(value)
+      @debtor_address = value.is_a?(Hash) ? DebtorAddress.new(value) : Address.coerce(value)
+    end
+
+    # Accepts a CreditorAddress or a Hash of its attributes.
+    def creditor_address=(value)
+      @creditor_address = value.is_a?(Hash) ? CreditorAddress.new(value) : Address.coerce(value)
+    end
+
     protected
+
+    def address_compatible?(address, schema_name)
+      address.nil? || address.schema_compatible?(Schema[schema_name])
+    end
 
     def validate_requested_date_after(min_requested_date)
       return unless requested_date.is_a?(Date)

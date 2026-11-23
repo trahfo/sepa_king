@@ -1,16 +1,9 @@
 # frozen_string_literal: true
 
 module SEPA
-  PAIN_008_001_02 = 'pain.008.001.02'
-  PAIN_008_002_02 = 'pain.008.002.02'
-  PAIN_008_003_02 = 'pain.008.003.02'
-  PAIN_001_001_03 = 'pain.001.001.03'
-  PAIN_001_002_03 = 'pain.001.002.03'
-  PAIN_001_003_03 = 'pain.001.003.03'
-  PAIN_001_001_03_CH_02 = 'pain.001.001.03.ch.02'
-
   class Message
     include ActiveModel::Validations
+    include Builders
 
     attr_reader :account, :grouped_transactions
 
@@ -20,6 +13,7 @@ module SEPA
     end
 
     class_attribute :account_class, :transaction_class, :xml_main_tag, :known_schemas
+    class_attribute :default_schema_warned, instance_accessor: false, default: false
 
     def initialize(account_options = {})
       @grouped_transactions = {}
@@ -38,21 +32,26 @@ module SEPA
       grouped_transactions.values.flatten
     end
 
+    # @param schema_name [String] one of +known_schemas+. Defaults to the first
+    #   known schema (the ISO 2009 version); this default will change to the
+    #   ISO 2019 version in 1.0, so pass the schema explicitly.
     # @return [String] xml
-    def to_xml(schema_name = known_schemas.first)
+    def to_xml(schema_name = nil)
+      schema_name ||= default_schema_name
       raise SEPA::Error, errors.full_messages.join("\n") unless valid?
       raise SEPA::Error, "Incompatible with schema #{schema_name}!" unless schema_compatible?(schema_name)
 
+      schema = Schema[schema_name]
       builder = Nokogiri::XML::Builder.new(encoding: 'UTF-8') do |builder|
-        builder.Document(xml_schema(schema_name)) do
+        builder.Document(schema.document_attributes) do
           builder.__send__(xml_main_tag) do
             build_group_header(builder)
-            build_payment_informations(builder, schema_name)
+            build_payment_informations(builder, schema)
           end
         end
       end
 
-      validate_final_document!(builder.doc, schema_name)
+      validate_final_document!(builder.doc, schema)
       builder.to_xml
     end
 
@@ -63,12 +62,11 @@ module SEPA
     def schema_compatible?(schema_name)
       raise ArgumentError, "Schema #{schema_name} is unknown!" unless known_schemas.include?(schema_name)
 
-      # pain.001.002.03 and pain.008.002.02 require a BIC for the account
-      if [PAIN_001_002_03, PAIN_008_002_02].include?(schema_name)
-        account.bic.present? && transactions.all? { |t| t.schema_compatible?(schema_name) }
-      else
-        transactions.all? { |t| t.schema_compatible?(schema_name) }
-      end
+      schema = Schema[schema_name]
+      return false if schema.supports?(:account_bic_required) && account.bic.blank?
+      return false unless account.address.nil? || account.address.schema_compatible?(schema)
+
+      transactions.all? { |t| t.schema_compatible?(schema_name) }
     end
 
     # Set unique identifer for the message
@@ -118,21 +116,14 @@ module SEPA
 
     private
 
-    # @return {Hash<Symbol=>String>} xml schema information used in output xml
-    def xml_schema(schema_name)
-      unless schema_name == PAIN_001_001_03_CH_02
-        return {
-          xmlns: "urn:iso:std:iso:20022:tech:xsd:#{schema_name}",
-          'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
-          'xsi:schemaLocation': "urn:iso:std:iso:20022:tech:xsd:#{schema_name} #{schema_name}.xsd"
-        }
+    def default_schema_name
+      unless self.class.default_schema_warned
+        warn "[sepa_king] #{self.class.name}#to_xml without a schema uses #{known_schemas.first}. " \
+             'The default will change to the ISO 2019 schema in sepa_king 1.0; pass the schema explicitly.',
+             category: :deprecated
+        self.class.default_schema_warned = true
       end
-
-      {
-        xmlns: 'http://www.six-interbank-clearing.com/de/pain.001.001.03.ch.02.xsd',
-        'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
-        'xsi:schemaLocation': 'http://www.six-interbank-clearing.com/de/pain.001.001.03.ch.02.xsd  pain.001.001.03.ch.02.xsd'
-      }
+      known_schemas.first
     end
 
     def build_group_header(builder)
@@ -166,10 +157,9 @@ module SEPA
       transaction
     end
 
-    def validate_final_document!(document, schema_name)
-      xsd = Nokogiri::XML::Schema(File.read(File.expand_path("../../lib/schema/#{schema_name}.xsd", __dir__)))
-      errors = xsd.validate(document).map(&:message)
-      raise SEPA::Error, "Incompatible with schema #{schema_name}: #{errors.join(', ')}" if errors.any?
+    def validate_final_document!(document, schema)
+      errors = schema.validate(document)
+      raise SEPA::Error, "Incompatible with schema #{schema}: #{errors.join(', ')}" if errors.any?
     end
   end
 end

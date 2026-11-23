@@ -3,7 +3,6 @@
 module SEPA
   class CreditTransferTransaction < Transaction
     attr_accessor :service_level,
-                  :creditor_address,
                   :category_purpose
 
     validates_inclusion_of :service_level, in: %w[SEPA URGP], allow_nil: true
@@ -26,6 +25,8 @@ module SEPA
         currency == 'EUR'
       when PAIN_001_001_03_CH_02
         currency == 'CHF'
+      when PAIN_001_001_09
+        service_level == 'SEPA' && currency == 'EUR' && address_compatible?(creditor_address, schema_name)
       end
     end
   end

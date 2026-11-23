@@ -3,6 +3,19 @@
 > Status: plan, 2026-11-23. Fork: `trahfo/sepa_king` (identical to `salesking/sepa_king` master, last release 0.14.0, Dec 2023).
 > Goal: make `sepa_king` the reference Ruby gem for SEPA payment initiation again — current ISO 20022 versions, current Ruby/Rails, first-class tests and docs — then contribute it back upstream.
 
+## Status (2026-11-23)
+
+| Milestone | State |
+|---|---|
+| M0 Modernise tooling | ✅ merged (trahfo/sepa_king#1) |
+| M1 New formats | ✅ released as `v0.15.0` on the fork |
+| M2 – M5 | open |
+
+Deviations from the M1 plan, decided during implementation:
+- **Hybrid addresses deferred to M2.** The vendored DK GBIC_4 XSDs (from #117) allow only structured addresses (`TwnNm` + `Ctry`, `AdrLine` forbidden). M1 therefore supports `:structured` (and the 2009 free-text form for old schemas). Hybrid needs a second XSD profile (generic ISO / newer DK TVS), planned as `to_xml(schema, profile:)` in M2.
+- **No extra amount bounds.** Every SEPA XSD already caps the amount; a Ruby-side check would only have changed the error class for existing callers.
+- **Injectable clock / message id** already existed (`creation_date_time=`, `message_identification=`); the golden suite uses them.
+
 ---
 
 ## 1. Situation
