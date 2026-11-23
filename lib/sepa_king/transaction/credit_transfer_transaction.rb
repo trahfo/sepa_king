@@ -25,7 +25,7 @@ module SEPA
     validates_inclusion_of :charge_bearer, in: CHARGE_BEARERS, allow_nil: true
     validates_with UETRValidator, message: '%{value} is invalid'
 
-    validate { |t| t.validate_requested_date_after(Date.today) }
+    validate { |t| t.validate_requested_date_after(SEPA.today) }
     validate do
       errors.add(:debtor_account, :sepa_not_correct) if debtor_account && !debtor_account.valid?
       errors.add(:charge_bearer, :sepa_slev_required) if service_level == 'SEPA' && charge_bearer && charge_bearer != 'SLEV'

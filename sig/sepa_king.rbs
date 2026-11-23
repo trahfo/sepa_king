@@ -20,6 +20,7 @@ module SEPA
   def self.configuration: () -> Configuration
   def self.configure: () { (Configuration) -> void } -> void
   def self.reset_configuration!: () -> Configuration
+  def self.today: () -> Date
 
   class Error < RuntimeError
   end

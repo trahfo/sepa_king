@@ -28,13 +28,13 @@ module SEPA
     validates_inclusion_of :local_instrument, in: LOCAL_INSTRUMENTS
     validates_inclusion_of :sequence_type, in: SEQUENCE_TYPES
     validates_length_of :category_purpose, within: 1..4, allow_nil: true
-    validate { |t| t.validate_requested_date_after(Date.today.next) }
+    validate { |t| t.validate_requested_date_after(SEPA.today.next) }
 
     validate do |t|
       errors.add(:creditor_account, :sepa_not_correct) if creditor_account && !creditor_account.valid?
 
       if t.mandate_date_of_signature.is_a?(Date)
-        errors.add(:mandate_date_of_signature, :sepa_in_the_future) if t.mandate_date_of_signature > Date.today
+        errors.add(:mandate_date_of_signature, :sepa_in_the_future) if t.mandate_date_of_signature > SEPA.today
       else
         errors.add(:mandate_date_of_signature, :sepa_not_a_date)
       end
