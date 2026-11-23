@@ -5,6 +5,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-24
+
+### Added
+- **EPC character set conversion** (EPC217-08, cf. salesking/sepa_king#105 / #92): accented and special letters are transliterated (é → e, Ø → O, Æ → AE) instead of dropped. `SEPA::Text.convert`, `SEPA::Text.truncate` (never splits a character).
+- `SEPA.configure`: `charset` (`:dk_extended` default, `:epc_basic`) and `strict_charset` (raise `SEPA::CharacterError` instead of dropping characters).
+- `Message#validate!` (raises `SEPA::ValidationError` with `#errors`), `Message#batches_summary`, `Message#to_h` / `Transaction#to_h`.
+- `to_xml(..., pretty: false)` for compact XML and `validate: false` to skip the XSD check (benchmarks only).
+- German translations of the gem's own validation messages (`lib/sepa_king/locale/de.yml`).
+- RBS signatures for the public API in `sig/`; 100 % YARD documentation, both enforced in CI.
+- README rewritten: supported messages, quick start, recipes, errors, upgrading, FAQ, credits.
+
+### Changed
+- Text fields: letters outside the allowed set are transliterated instead of removed (`José` → `Jose`, was `Jos`). Everything else, including the XML of all golden scenarios, is unchanged.
+
 ## [0.16.0] - 2026-11-24
 
 ### Added

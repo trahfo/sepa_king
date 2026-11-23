@@ -54,7 +54,7 @@ jobs:
       id-token: write
 
   lint:
-    name: RuboCop
+    name: Lint, docs and types
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,6 +63,10 @@ jobs:
           ruby-version: '3.4'
           bundler-cache: true
       - run: bundle exec rubocop --parallel
+      - name: YARD documentation (100 %)
+        run: bundle exec rake yard_audit
+      - name: RBS signatures
+        run: bundle exec rake rbs
 
   build:
     name: Gem build

@@ -64,3 +64,9 @@ RSpec/DescribeClass:
     - 'spec/validation_spec.rb'
     - 'spec/edge_cases_spec.rb'
     - 'spec/data_model_spec.rb'
+    - 'spec/developer_experience_spec.rb'
+
+# validate! raises or returns true, like ActiveRecord's save!.
+Naming/PredicateMethod:
+  AllowedMethods:
+    - validate!
