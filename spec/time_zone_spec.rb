@@ -3,7 +3,7 @@
 require 'active_support/core_ext/date/calculations'
 require 'active_support/core_ext/time/zones'
 
-RSpec.describe 'Dates in the application time zone' do
+RSpec.describe SEPA, '.today (application time zone)' do
   around do |example|
     zone = Time.zone
     Time.zone = 'Pacific/Kiritimati' # UTC+14: already tomorrow almost everywhere
