@@ -1,9 +1,12 @@
 # Ruby gem for creating SEPA XML files
 
-[![Build Status](https://github.com/salesking/sepa_king/workflows/Test/badge.svg?branch=master)](https://github.com/salesking/sepa_king/actions)
-[![Code Climate](https://codeclimate.com/github/salesking/sepa_king/badges/gpa.svg)](https://codeclimate.com/github/salesking/sepa_king)
-[![Coverage Status](https://coveralls.io/repos/salesking/sepa_king/badge.svg?branch=master)](https://coveralls.io/r/salesking/sepa_king?branch=master)
-[![Gem Version](https://badge.fury.io/rb/sepa_king.svg)](http://badge.fury.io/rb/sepa_king)
+[![CI](https://github.com/trahfo/sepa_king/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/trahfo/sepa_king/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/trahfo/sepa_king/branch/master/graph/badge.svg)](https://codecov.io/gh/trahfo/sepa_king)
+[![Gem Version](https://img.shields.io/gem/v/sepa_king.svg)](https://rubygems.org/gems/sepa_king)
+[![Downloads](https://img.shields.io/gem/dt/sepa_king.svg)](https://rubygems.org/gems/sepa_king)
+[![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.3-CC342D.svg)](https://www.ruby-lang.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.txt)
+[![Docs](https://img.shields.io/badge/docs-rubydoc.info-blue.svg)](https://www.rubydoc.info/gems/sepa_king)
 
 We love building payment applications! So after developing the [DTAUS library for Ruby](https://github.com/salesking/king_dtaus) we move on with SEPA.
 
@@ -22,8 +25,9 @@ BTW: **pain** is a shortcut for **Pa**yment **In**itiation.
 
 ## Requirements
 
-* Ruby 2.7 or newer
-* ActiveModel 4.2 or newer (including 7.0)
+* Ruby 3.3 or newer (tested on 3.3, 3.4 and 4.0)
+* ActiveModel 7.2, 8.0 or 8.1
+* Nokogiri 1.16 or newer
 
 
 ## Installation
@@ -275,7 +279,20 @@ Also see:
 
 ## Changelog
 
-https://github.com/salesking/sepa_king/releases
+See [CHANGELOG.md](CHANGELOG.md).
+
+
+## Development
+
+```sh
+bundle install
+bundle exec rake          # RSpec (100 % line and branch coverage enforced) + RuboCop
+BUNDLE_GEMFILE=gemfiles/Gemfile-activemodel-7.2.x bundle exec rspec   # another ActiveModel
+GOLDEN_UPDATE=1 bundle exec rspec spec/golden_spec.rb                 # after an intended XML change
+```
+
+`spec/golden/` holds the exact XML produced for a set of scenarios and every
+supported schema. Any change to the generated XML shows up as a diff there.
 
 
 ## Contributors
