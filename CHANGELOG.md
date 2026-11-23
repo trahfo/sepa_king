@@ -5,6 +5,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-24
+
+### Added
+- **Schema profiles** for the 2019 versions: `:dk` (default, DK GBIC_4 subset, structured addresses) and `:epc` (generic ISO 20022 XSD from iso20022.org plus EPC rules in Ruby: hybrid addresses, UETR, non-SEPA credit transfers). `to_xml(schema, profile:)`, `schema_compatible?(schema, profile:)`, `SEPA::Schema.profiles`.
+- **Hybrid addresses** (town + country + up to two address lines) in the `:epc` profile.
+- **Non-EEA SEPA rule**: debtor (SDD) / creditor (SCT) address mandatory for counterparties in `SEPA::NON_EEA_SEPA_COUNTRIES` (2019 schemas).
+- **Initiating party** different from the account holder (`initiating_party:`), **ultimate debtor / creditor** per transaction, all with `SEPA::Party` and `SEPA::PartyIdentification` (BIC, LEI, other id with scheme and issuer; organisations and private persons).
+- **Structured creditor reference** (ISO 11649): `creditor_reference:` → `<Strd><CdtrRefInf>` with `SCOR`; `SEPA::CreditorReference.valid?` / `.generate`.
+- **Purpose code** (`purpose_code:`) for SDD and SCT, **category purpose** for SDD.
+- **SEPA Instant**: `local_instrument: 'INST'`, requested execution date with time (`<DtTm>`) in pain.001.001.09.
+- **UETR** (`uetr:`) for credit transfers (`:epc` profile), **instruction priority** and **charge bearer** for credit transfers.
+- **Debtor account per credit transfer transaction** (`debtor_account:`), cf. salesking/sepa_king#113.
+- **Original mandate id** (`original_mandate_id:`) for mandate amendments.
+- Validators: `SEPA::LEIValidator`, `SEPA::CreditorReferenceValidator`, `SEPA::UETRValidator`.
+- `require 'sepa_king'` now defines `SEPA::VERSION`.
+
+### Changed
+- `COR1` prints a deprecation warning (obsolete since 2017, rejected by the 2019 schemas).
+- Addresses, parties and their identifications are validated when a transaction is added; `country_code` stays optional for the 2009 schemas.
+- Mandate amendment details are written in schema order (`OrgnlMndtId`, `OrgnlCdtrSchmeId`, then debtor account/agent); combining creditor and debtor amendments used to fail the XSD.
+- Output for existing callers is byte-for-byte unchanged (golden files).
+
 ## [0.15.0] - 2026-11-23
 
 ### Added
