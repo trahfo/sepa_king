@@ -1,0 +1,1 @@
+ERROR: Incompatible with schema pain.001.003.03: ERROR: Element '{urn:iso:std:iso:20022:tech:xsd:pain.001.003.03}StrtNm': This element is not expected. Expected is one of ( {urn:iso:std:iso:20022:tech:xsd:pain.001.003.03}Ctry, {urn:iso:std:iso:20022:tech:xsd:pain.001.003.03}AdrLine ).
