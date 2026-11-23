@@ -23,7 +23,14 @@ module GoldenScenarios
       'ct_chf' => method(:ct_chf),
       'ct_no_bic' => method(:ct_no_bic),
       'dd_structured' => method(:dd_structured),
-      'ct_structured' => method(:ct_structured)
+      'ct_structured' => method(:ct_structured),
+      'dd_data_model' => method(:dd_data_model),
+      'dd_hybrid' => method(:dd_hybrid),
+      'dd_non_eea' => method(:dd_non_eea),
+      'ct_data_model' => method(:ct_data_model),
+      'ct_instant' => method(:ct_instant),
+      'ct_instant_dk' => method(:ct_instant_dk),
+      'ct_non_sepa' => method(:ct_non_sepa)
     }
   end
 
@@ -180,6 +187,86 @@ module GoldenScenarios
                 'GOLDEN/CT/STRUCTURED')
     sct.add_transaction(ct_txn(category_purpose: 'SALA', creditor_address: STRUCTURED_ADDRESS))
     sct.add_transaction(ct_txn(name: 'Ohne BIC', bic: nil, reference: 'NOBIC'))
+    sct
+  end
+
+  LEI = '529900T8BM49AURSDO55'
+
+  # Initiating party, ultimate parties, RF reference, purpose, category
+  # purpose and a full mandate amendment.
+  def dd_data_model
+    sdd = stamp(dd_base(initiating_party: { name: 'Abrechnungsdienst GmbH',
+                                            identification: { lei: LEI, id: 'ABR-1', scheme_code: 'CUST' } }),
+                'GOLDEN/DD/MODEL')
+    sdd.add_transaction(dd_txn(
+                          sequence_type: 'RCUR', category_purpose: 'OTHR', purpose_code: 'OTHR',
+                          remittance_information: nil, creditor_reference: 'RF18 5390 0754 7034',
+                          ultimate_creditor: { name: 'Carsharing Verein',
+                                               identification: { bic: 'BANKDEFFXXX' } },
+                          ultimate_debtor: { name: 'Max Mustermann',
+                                             identification: { type: :private, id: '4711',
+                                                               scheme_proprietary: 'Kundennummer' } },
+                          debtor_address: { town_name: 'Wien', country_code: 'AT' },
+                          original_mandate_id: 'K-01-2010-1',
+                          original_debtor_account: 'NL08RABO0135742099',
+                          original_creditor_account: SEPA::CreditorAccount.new(
+                            name: 'Alter Gläubiger', creditor_identifier: 'NL04ZZZ987654320000'
+                          )
+                        ))
+    sdd
+  end
+
+  # Hybrid address: town and country plus free-text lines (EPC profile only).
+  def dd_hybrid
+    sdd = stamp(dd_base, 'GOLDEN/DD/HYBRID')
+    sdd.add_transaction(dd_txn(debtor_address: { town_name: 'Wien', country_code: 'AT',
+                                                 address_line1: 'Hauptstraße 5a', address_line2: 'Stiege 2' }))
+    sdd
+  end
+
+  # Debtor with a Swiss IBAN: the address is mandatory in the 2019 schemas.
+  def dd_non_eea
+    sdd = stamp(dd_base, 'GOLDEN/DD/NONEEA')
+    sdd.add_transaction(dd_txn(iban: 'CH9300762011623852957', bic: 'UBSWCHZH80A',
+                               debtor_address: { street_name: 'Bahnhofstrasse', building_number: '1',
+                                                 post_code: '8001', town_name: 'Zürich', country_code: 'CH' }))
+    sdd
+  end
+
+  # Debtor account per transaction, ultimate parties, RF reference, purpose.
+  def ct_data_model
+    sct = stamp(ct_base(initiating_party: 'Zahlungsdienst GmbH'), 'GOLDEN/CT/MODEL')
+    sct.add_transaction(ct_txn(remittance_information: nil, creditor_reference: 'RF18539007547034',
+                               purpose_code: 'SALA', category_purpose: 'SALA', instruction_priority: 'NORM',
+                               ultimate_debtor: { name: 'Tochter GmbH', identification: { lei: LEI } },
+                               ultimate_creditor: 'Endempfänger AG'))
+    sct.add_transaction(ct_txn(reference: 'OTHER-DEBTOR', debtor_account: SEPA::DebtorAccount.new(
+      name: 'Zweitkonto GmbH', bic: 'RABONL2UXXX', iban: 'NL08RABO0135742099',
+      address: { town_name: 'Utrecht', country_code: 'NL' }
+    )))
+    sct
+  end
+
+  # SEPA Instant with execution date and time and a UETR (EPC profile).
+  def ct_instant
+    sct = stamp(ct_base, 'GOLDEN/CT/INSTANT')
+    sct.add_transaction(ct_txn(local_instrument: 'INST', uetr: 'e0a7c8b2-5f3d-4b1a-9c2e-7d8f6a1b3c4d',
+                               requested_date: Time.new(2099, 1, 2, 9, 30, 0, '+01:00')))
+    sct
+  end
+
+  # SEPA Instant without UETR (DK subset): a message must not mix SCT and SCT Inst.
+  def ct_instant_dk
+    sct = stamp(ct_base, 'GOLDEN/CT/INSTANTDK')
+    sct.add_transaction(ct_txn(local_instrument: 'INST', requested_date: DateTime.new(2099, 1, 2, 9, 30, 0, '+01:00')))
+    sct
+  end
+
+  # Non-SEPA payment (USD, shared charges, high priority).
+  def ct_non_sepa
+    sct = stamp(ct_base, 'GOLDEN/CT/NONSEPA')
+    sct.add_transaction(ct_txn(currency: 'USD', service_level: nil, charge_bearer: 'SHAR',
+                               instruction_priority: 'HIGH'))
     sct
   end
 end

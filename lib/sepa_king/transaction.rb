@@ -16,8 +16,9 @@ module SEPA
                   :remittance_information,
                   :requested_date,
                   :batch_booking,
-                  :currency
-    attr_reader :debtor_address, :creditor_address
+                  :currency,
+                  :purpose_code
+    attr_reader :debtor_address, :creditor_address, :ultimate_debtor, :ultimate_creditor, :creditor_reference
 
     convert :name, :instruction, :reference, :remittance_information, to: :text
     convert :amount, to: :decimal
@@ -31,6 +32,16 @@ module SEPA
     validates_presence_of :requested_date
     validates_inclusion_of :batch_booking, in: [true, false]
     validates_with BICValidator, IBANValidator, message: '%{value} is invalid'
+    validates_with CreditorReferenceValidator, message: '%{value} is invalid'
+    validates_length_of :purpose_code, within: 1..4, allow_nil: true
+
+    validate do
+      errors.add(:creditor_reference, 'cannot be combined with remittance_information') if remittance_information && creditor_reference
+      %i[ultimate_debtor ultimate_creditor debtor_address creditor_address].each do |attribute|
+        value = public_send(attribute)
+        errors.add(attribute, value.errors.full_messages.join(', ')) if value && !value.valid?
+      end
+    end
 
     def initialize(attributes = {})
       attributes.each do |name, value|
@@ -53,16 +64,49 @@ module SEPA
       @creditor_address = value.is_a?(Hash) ? CreditorAddress.new(value) : Address.coerce(value)
     end
 
+    # Party on whose behalf the debtor pays. Accepts a Party, a Hash or a name.
+    def ultimate_debtor=(value)
+      @ultimate_debtor = Party.coerce(value)
+    end
+
+    # Party that ultimately receives the money. Accepts a Party, a Hash or a name.
+    def ultimate_creditor=(value)
+      @ultimate_creditor = Party.coerce(value)
+    end
+
+    # Structured creditor reference (ISO 11649), e.g. "RF18 5390 0754 7034".
+    def creditor_reference=(value)
+      @creditor_reference = value && CreditorReference.normalize(value)
+    end
+
+    # Requested date with a time of day (only for schemas with <DtTm>).
+    def requested_time?
+      requested_date.is_a?(Time) || requested_date.is_a?(DateTime)
+    end
+
     protected
 
-    def address_compatible?(address, schema_name)
-      address.nil? || address.schema_compatible?(Schema[schema_name])
+    # Checks shared by all transactions for the 2019 schemas.
+    def iso2019_compatible?(schema, counterparty_address)
+      [debtor_address, creditor_address, ultimate_debtor, ultimate_creditor].compact
+                                                                            .all? { |value| value.schema_compatible?(schema) } &&
+        !(schema.supports?(:non_eea_address) && non_eea?(iban) && counterparty_address.nil?)
+    end
+
+    def non_eea?(iban)
+      NON_EEA_SEPA_COUNTRIES.include?(iban.to_s[0, 2])
+    end
+
+    # Ultimate parties must fit the schema (an LEI needs a 2019 schema).
+    def parties_compatible?(schema)
+      [ultimate_debtor, ultimate_creditor].compact.all? { |party| party.schema_compatible?(schema) }
     end
 
     def validate_requested_date_after(min_requested_date)
-      return unless requested_date.is_a?(Date)
+      return unless requested_date.is_a?(Date) || requested_date.is_a?(Time)
 
-      return unless requested_date != DEFAULT_REQUESTED_DATE && requested_date < min_requested_date
+      date = requested_date.to_date
+      return unless date != DEFAULT_REQUESTED_DATE && date < min_requested_date
 
       errors.add(:requested_date, "must be greater or equal to #{min_requested_date}, or nil")
     end

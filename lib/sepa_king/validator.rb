@@ -68,4 +68,60 @@ module SEPA
       record.errors.add(field_name, :invalid, message: options[:message])
     end
   end
+
+  # ISO 7064 MOD 97-10 check used by LEI (ISO 17442) and RF creditor references (ISO 11649).
+  module Mod97
+    module_function
+
+    def remainder(value)
+      value.chars.map { |char| char.to_i(36).to_s }.join.to_i % 97
+    end
+  end
+
+  # Legal Entity Identifier (ISO 17442): 18 alphanumerics plus 2 check digits.
+  class LEIValidator < ActiveModel::Validator
+    REGEX = /\A[A-Z0-9]{18}[0-9]{2}\z/
+
+    def self.valid?(value)
+      value.to_s.match?(REGEX) && Mod97.remainder(value) == 1
+    end
+
+    def validate(record)
+      field_name = options[:field_name] || :lei
+      value = record.send(field_name)
+      return if value.nil? || self.class.valid?(value)
+
+      record.errors.add(field_name, :invalid, message: options[:message])
+    end
+  end
+
+  # Structured creditor reference (ISO 11649), e.g. "RF18539007547034".
+  class CreditorReferenceValidator < ActiveModel::Validator
+    REGEX = /\ARF[0-9]{2}[A-Z0-9]{1,21}\z/
+
+    def self.valid?(value)
+      value.to_s.match?(REGEX) && Mod97.remainder(value[4..] + value[0, 4]) == 1
+    end
+
+    def validate(record)
+      field_name = options[:field_name] || :creditor_reference
+      value = record.send(field_name)
+      return if value.nil? || self.class.valid?(value)
+
+      record.errors.add(field_name, :invalid, message: options[:message])
+    end
+  end
+
+  # Unique end-to-end transaction reference, a UUID version 4.
+  class UETRValidator < ActiveModel::Validator
+    REGEX = /\A[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\z/
+
+    def validate(record)
+      field_name = options[:field_name] || :uetr
+      value = record.send(field_name)
+      return if value.nil? || value.to_s.match?(REGEX)
+
+      record.errors.add(field_name, :invalid, message: options[:message])
+    end
+  end
 end

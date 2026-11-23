@@ -14,7 +14,11 @@ module SEPA
       { requested_date: transaction.requested_date,
         batch_booking: transaction.batch_booking,
         service_level: transaction.service_level,
-        category_purpose: transaction.category_purpose }
+        category_purpose: transaction.category_purpose,
+        local_instrument: transaction.local_instrument,
+        instruction_priority: transaction.instruction_priority,
+        charge_bearer: transaction.charge_bearer,
+        account: transaction.debtor_account || account }
     end
 
     def build_payment_informations(builder, schema)
@@ -23,8 +27,9 @@ module SEPA
         # All transactions with the same requested_date are placed into the same PmtInf block
         builder.PmtInf do
           build_payment_information_header(builder, group, transactions, schema)
-          build_debtor(builder, schema)
-          builder.ChrgBr('SLEV') if group[:service_level]
+          build_debtor(builder, group[:account], schema)
+          charge_bearer = group[:charge_bearer] || ('SLEV' if group[:service_level])
+          builder.ChrgBr(charge_bearer) if charge_bearer
 
           transactions.each do |transaction|
             build_transaction(builder, transaction, schema)
@@ -45,9 +50,15 @@ module SEPA
 
     def build_payment_type_information(builder, group)
       builder.PmtTpInf do
+        builder.InstrPrty(group[:instruction_priority]) if group[:instruction_priority]
         if group[:service_level]
           builder.SvcLvl do
             builder.Cd(group[:service_level])
+          end
+        end
+        if group[:local_instrument]
+          builder.LclInstrm do
+            builder.Cd(group[:local_instrument])
           end
         end
         if group[:category_purpose]
@@ -58,9 +69,9 @@ module SEPA
       end
     end
 
-    def build_debtor(builder, schema)
+    def build_debtor(builder, account, schema)
       builder.Dbtr do
-        build_party(builder, account.name, account.address, schema)
+        build_name_and_address(builder, account.name, account.address, schema)
       end
       builder.DbtrAcct do
         builder.Id do
@@ -76,31 +87,27 @@ module SEPA
 
     def build_transaction(builder, transaction, schema)
       builder.CdtTrfTxInf do
-        builder.PmtId do
-          builder.InstrId(transaction.instruction) if transaction.instruction.present?
-          builder.EndToEndId(transaction.reference)
-        end
+        build_payment_identification(builder, transaction)
         builder.Amt do
           builder.InstdAmt('%.2f' % transaction.amount, Ccy: transaction.currency)
         end
+        build_party_element(builder, :UltmtDbtr, transaction.ultimate_debtor, schema)
         if transaction.bic
           builder.CdtrAgt do
             build_financial_institution(builder, transaction.bic, schema)
           end
         end
         builder.Cdtr do
-          build_party(builder, transaction.name, transaction.creditor_address, schema)
+          build_name_and_address(builder, transaction.name, transaction.creditor_address, schema)
         end
         builder.CdtrAcct do
           builder.Id do
             builder.IBAN(transaction.iban)
           end
         end
-        if transaction.remittance_information
-          builder.RmtInf do
-            builder.Ustrd(transaction.remittance_information)
-          end
-        end
+        build_party_element(builder, :UltmtCdtr, transaction.ultimate_creditor, schema)
+        build_purpose(builder, transaction)
+        build_remittance_information(builder, transaction)
       end
     end
   end
