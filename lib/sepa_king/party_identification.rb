@@ -7,6 +7,7 @@ module SEPA
     include ActiveModel::Validations
     extend Converter
 
+    # Kinds of parties.
     TYPES = %i[organisation private].freeze
 
     attr_accessor :bic, :lei, :id, :scheme_code, :scheme_proprietary, :issuer
@@ -23,10 +24,10 @@ module SEPA
     validates_length_of :issuer, within: 1..35, allow_nil: true
 
     validate do
-      errors.add(:base, 'needs a BIC, an LEI or an id') if [bic, lei, id].all?(&:nil?)
-      errors.add(:base, 'BIC and LEI are only allowed for organisations') if type == :private && (bic || lei)
-      errors.add(:base, 'scheme_code and scheme_proprietary are exclusive') if scheme_code && scheme_proprietary
-      errors.add(:base, 'a scheme needs an id') if (scheme_code || scheme_proprietary || issuer) && id.nil?
+      errors.add(:base, :sepa_identifier_missing) if [bic, lei, id].all?(&:nil?)
+      errors.add(:base, :sepa_organisation_only) if type == :private && (bic || lei)
+      errors.add(:base, :sepa_scheme_exclusive) if scheme_code && scheme_proprietary
+      errors.add(:base, :sepa_scheme_without_id) if (scheme_code || scheme_proprietary || issuer) && id.nil?
     end
 
     def initialize(attributes = {})
@@ -40,6 +41,8 @@ module SEPA
       @type = value&.to_sym
     end
 
+    # @param value [PartyIdentification, Hash, nil]
+    # @return [PartyIdentification, nil]
     def self.coerce(value)
       case value
       when nil, PartyIdentification then value

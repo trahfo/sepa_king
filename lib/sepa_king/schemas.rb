@@ -1,14 +1,23 @@
 # frozen_string_literal: true
 
 module SEPA
+  # SDD, ISO 2009, generic
   PAIN_008_001_02 = 'pain.008.001.02'
+  # SDD, ISO 2019 (profiles :dk, :epc)
   PAIN_008_001_08 = 'pain.008.001.08'
+  # SDD, ISO 2009, German variant with mandatory BIC
   PAIN_008_002_02 = 'pain.008.002.02'
+  # SDD, ISO 2009, German variant
   PAIN_008_003_02 = 'pain.008.003.02'
+  # SCT, ISO 2009, generic
   PAIN_001_001_03 = 'pain.001.001.03'
+  # SCT / SCT Inst, ISO 2019 (profiles :dk, :epc)
   PAIN_001_001_09 = 'pain.001.001.09'
+  # SCT, ISO 2009, German variant with mandatory BIC
   PAIN_001_002_03 = 'pain.001.002.03'
+  # SCT, ISO 2009, German variant
   PAIN_001_003_03 = 'pain.001.003.03'
+  # SCT, Swiss Payment Standards (SIX)
   PAIN_001_001_03_CH_02 = 'pain.001.001.03.ch.02'
 
   # Countries in the SEPA scheme area outside the EEA (EPC list of SEPA scheme

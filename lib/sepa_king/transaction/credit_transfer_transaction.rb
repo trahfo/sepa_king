@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
 module SEPA
+  # One credit transfer (<CdtTrfTxInf>).
   class CreditTransferTransaction < Transaction
+    # Supported local instruments (SEPA Instant).
     LOCAL_INSTRUMENTS = %w[INST].freeze
+    # Values of <InstrPrty>.
     INSTRUCTION_PRIORITIES = %w[HIGH NORM].freeze
+    # Values of <ChrgBr>.
     CHARGE_BEARERS = %w[DEBT CRED SHAR SLEV].freeze
 
     attr_accessor :service_level,
@@ -23,9 +27,9 @@ module SEPA
 
     validate { |t| t.validate_requested_date_after(Date.today) }
     validate do
-      errors.add(:debtor_account, 'is not correct') if debtor_account && !debtor_account.valid?
-      errors.add(:charge_bearer, 'must be SLEV for SEPA payments') if service_level == 'SEPA' && charge_bearer && charge_bearer != 'SLEV'
-      errors.add(:local_instrument, 'INST requires EUR') if instant? && currency != 'EUR'
+      errors.add(:debtor_account, :sepa_not_correct) if debtor_account && !debtor_account.valid?
+      errors.add(:charge_bearer, :sepa_slev_required) if service_level == 'SEPA' && charge_bearer && charge_bearer != 'SLEV'
+      errors.add(:local_instrument, :sepa_instant_requires_eur) if instant? && currency != 'EUR'
     end
 
     def initialize(attributes = {})

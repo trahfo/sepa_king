@@ -14,7 +14,7 @@ module SEPA
 
     validates_length_of :name, within: 1..70, allow_nil: true
     validate do
-      errors.add(:base, 'needs a name or an identification') if name.nil? && identification.nil?
+      errors.add(:base, :sepa_name_or_identification_missing) if name.nil? && identification.nil?
       errors.add(:address, :invalid) if address && !address.valid?
       errors.add(:identification, identification.errors.full_messages.join(', ')) if identification && !identification.valid?
     end

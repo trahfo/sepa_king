@@ -31,6 +31,10 @@ module SEPA
     attr_reader :name, :profile, :family, :namespace, :xsd_file, :features
 
     class << self
+      # Registers a schema profile.
+      # @param name [String] schema name
+      # @param profile [Symbol]
+      # @return [Schema]
       def register(name, profile: :default, **)
         (registry[name] ||= {})[profile] = new(name, profile: profile, **)
       end
@@ -55,11 +59,14 @@ module SEPA
         registry.key?(name)
       end
 
+      # @param name [String]
+      # @return [Array<Symbol>] the profiles of a schema, default first
       def profiles(name)
         self[name] # raises for unknown names
         registry[name].keys
       end
 
+      # @return [Array<Schema>] every registered schema profile
       def all
         registry.values.flat_map(&:values)
       end
@@ -94,6 +101,7 @@ module SEPA
       supports?(:postal_address_24)
     end
 
+    # @return [Symbol] :BICFI for ISO 2019 schemas, :BIC otherwise
     def bic_tag
       supports?(:bicfi) ? :BICFI : :BIC
     end
@@ -119,6 +127,7 @@ module SEPA
       xsd.validate(document).map(&:message)
     end
 
+    # @return [String] the name, with the profile for profiled schemas
     def to_s
       profile == :default ? name : "#{name} (#{profile})"
     end

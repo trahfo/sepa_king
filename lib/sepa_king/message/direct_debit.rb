@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 module SEPA
+  # SEPA Direct Debit Initiation (pain.008, "Lastschrift").
   class DirectDebit < Message
     include MandateBuilders
 
@@ -11,7 +12,7 @@ module SEPA
 
     validate do |record|
       if record.transactions.map(&:local_instrument).uniq.size > 1
-        errors.add(:base, 'CORE, COR1 AND B2B must not be mixed in one message!')
+        errors.add(:base, :sepa_mixed_local_instruments)
       end
     end
 

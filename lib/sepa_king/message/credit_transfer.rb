@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 module SEPA
+  # SEPA Credit Transfer Initiation (pain.001, "Überweisung").
   class CreditTransfer < Message
     self.account_class = DebtorAccount
     self.transaction_class = CreditTransferTransaction

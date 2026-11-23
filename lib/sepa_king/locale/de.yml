@@ -1,0 +1,17 @@
+de:
+  activemodel:
+    errors:
+      messages:
+        sepa_name_or_identification_missing: "benötigt einen Namen oder eine Identifikation"
+        sepa_combined_with_remittance_information: "kann nicht mit remittance_information (Verwendungszweck) kombiniert werden"
+        sepa_too_early: "muss am oder nach dem %{date} liegen oder leer sein"
+        sepa_identifier_missing: "benötigt eine BIC, einen LEI oder eine ID"
+        sepa_organisation_only: "BIC und LEI sind nur für Organisationen erlaubt"
+        sepa_scheme_exclusive: "scheme_code und scheme_proprietary schließen einander aus"
+        sepa_scheme_without_id: "ein Schema benötigt eine ID"
+        sepa_not_correct: "ist nicht korrekt"
+        sepa_in_the_future: "liegt in der Zukunft"
+        sepa_not_a_date: "ist kein Datum"
+        sepa_mixed_local_instruments: "CORE, COR1 und B2B dürfen nicht in einer Nachricht gemischt werden!"
+        sepa_slev_required: "muss für SEPA-Zahlungen SLEV sein"
+        sepa_instant_requires_eur: "INST erfordert EUR"

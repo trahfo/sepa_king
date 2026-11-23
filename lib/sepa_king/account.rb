@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 module SEPA
+  # Account holder of a message: creditor of a direct debit or debtor of a
+  # credit transfer (name, IBAN, optional BIC and postal address).
   class Account
     include ActiveModel::Validations
     extend Converter

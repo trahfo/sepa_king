@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
 module SEPA
+  # One direct debit (<DrctDbtTxInf>).
   class DirectDebitTransaction < Transaction
+    # First, one-off, recurring and final collection.
     SEQUENCE_TYPES = %w[FRST OOFF RCUR FNAL].freeze
+    # Core and business-to-business schemes (COR1 is obsolete).
     LOCAL_INSTRUMENTS = %w[CORE COR1 B2B].freeze
 
     attr_accessor :mandate_id,
@@ -28,12 +31,12 @@ module SEPA
     validate { |t| t.validate_requested_date_after(Date.today.next) }
 
     validate do |t|
-      errors.add(:creditor_account, 'is not correct') if creditor_account && !creditor_account.valid?
+      errors.add(:creditor_account, :sepa_not_correct) if creditor_account && !creditor_account.valid?
 
       if t.mandate_date_of_signature.is_a?(Date)
-        errors.add(:mandate_date_of_signature, 'is in the future') if t.mandate_date_of_signature > Date.today
+        errors.add(:mandate_date_of_signature, :sepa_in_the_future) if t.mandate_date_of_signature > Date.today
       else
-        errors.add(:mandate_date_of_signature, 'is not a Date')
+        errors.add(:mandate_date_of_signature, :sepa_not_a_date)
       end
     end
 
