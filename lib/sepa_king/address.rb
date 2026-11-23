@@ -32,10 +32,44 @@ module SEPA
     # Elements of the 2009 PostalAddress6 written by this gem, in schema order.
     POSTAL_ADDRESS_6 = %i[Dept SubDept StrtNm BldgNb PstCd TwnNm CtrySubDvsn Ctry].freeze
 
+    # Attributes written as <AdrLine>.
     ADDRESS_LINES = %i[address_line1 address_line2].freeze
 
+    # All attributes of an address.
     ATTRIBUTES = (POSTAL_ADDRESS_24.values.map(&:first) + ADDRESS_LINES).freeze
 
+    # @!attribute [rw] department
+    #   @return [String, nil] <Dept>, max. 70 characters
+    # @!attribute [rw] sub_department
+    #   @return [String, nil] <SubDept>, max. 70 characters
+    # @!attribute [rw] street_name
+    #   @return [String, nil] <StrtNm>, max. 70 characters
+    # @!attribute [rw] building_number
+    #   @return [String, nil] <BldgNb>, max. 16 characters
+    # @!attribute [rw] building_name
+    #   @return [String, nil] <BldgNm>, max. 35 characters
+    # @!attribute [rw] floor
+    #   @return [String, nil] <Flr>, max. 70 characters
+    # @!attribute [rw] post_box
+    #   @return [String, nil] <PstBx>, max. 16 characters
+    # @!attribute [rw] room
+    #   @return [String, nil] <Room>, max. 70 characters
+    # @!attribute [rw] post_code
+    #   @return [String, nil] <PstCd>, max. 16 characters
+    # @!attribute [rw] town_name
+    #   @return [String, nil] <TwnNm>, max. 35 characters
+    # @!attribute [rw] town_location_name
+    #   @return [String, nil] <TwnLctnNm>, max. 35 characters
+    # @!attribute [rw] district_name
+    #   @return [String, nil] <DstrctNm>, max. 35 characters
+    # @!attribute [rw] country_sub_division
+    #   @return [String, nil] <CtrySubDvsn>, max. 35 characters
+    # @!attribute [rw] country_code
+    #   @return [String, nil] <Ctry>, max. 2 characters
+    # @!attribute [rw] address_line1
+    #   @return [String, nil] <AdrLine>, max. 70 characters
+    # @!attribute [rw] address_line2
+    #   @return [String, nil] <AdrLine>, max. 70 characters
     attr_accessor(*ATTRIBUTES)
 
     convert(*ATTRIBUTES, to: :text)
@@ -64,6 +98,7 @@ module SEPA
       end
     end
 
+    # @return [Array<String>] the given address lines
     def address_lines
       ADDRESS_LINES.filter_map { |attribute| public_send(attribute) }
     end

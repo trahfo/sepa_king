@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
 module SEPA
+  # Validates an IBAN (check digits and format, no spaces).
   class IBANValidator < ActiveModel::Validator
     # IBAN2007Identifier (taken from schema)
+    # Format check.
     REGEX = /\A[A-Z]{2,2}[0-9]{2,2}[a-zA-Z0-9]{1,30}\z/
+
+    # @param record [ActiveModel::Validations]
 
     def validate(record)
       field_name = options[:field_name] || :iban
@@ -15,9 +19,13 @@ module SEPA
     end
   end
 
+  # Validates a BIC (8 or 11 characters) if present.
   class BICValidator < ActiveModel::Validator
     # AnyBICIdentifier (taken from schema)
+    # Format check.
     REGEX = /\A[A-Z]{6,6}[A-Z2-9][A-NP-Z0-9]([A-Z0-9]{3,3}){0,1}\z/
+
+    # @param record [ActiveModel::Validations]
 
     def validate(record)
       field_name = options[:field_name] || :bic
@@ -30,13 +38,17 @@ module SEPA
     end
   end
 
+  # Validates a SEPA creditor identifier (Gläubiger-ID).
   class CreditorIdentifierValidator < ActiveModel::Validator
+    # Format check.
     REGEX = %r{\A
       [a-zA-Z]{2}                 # ISO country code
       [0-9]{2}                    # Check digits
       [A-Za-z0-9]{3}              # Creditor business code
       [A-Za-z0-9+?/:().,'-]{1,28} # National identifier
     \z}x
+
+    # @param record [ActiveModel::Validations]
 
     def validate(record)
       field_name = options[:field_name] || :creditor_identifier
@@ -56,8 +68,12 @@ module SEPA
     end
   end
 
+  # Validates a mandate reference (1 to 35 allowed characters).
   class MandateIdentifierValidator < ActiveModel::Validator
+    # Format check.
     REGEX = %r{\A[A-Za-z0-9 +?/:().,'-]{1,35}\z}
+
+    # @param record [ActiveModel::Validations]
 
     def validate(record)
       field_name = options[:field_name] || :mandate_id
@@ -73,6 +89,8 @@ module SEPA
   module Mod97
     module_function
 
+    # @param value [String] letters and digits
+    # @return [Integer] value mod 97 with letters as 10..35
     def remainder(value)
       value.chars.map { |char| char.to_i(36).to_s }.join.to_i % 97
     end
@@ -80,11 +98,14 @@ module SEPA
 
   # Legal Entity Identifier (ISO 17442): 18 alphanumerics plus 2 check digits.
   class LEIValidator < ActiveModel::Validator
+    # Format check.
     REGEX = /\A[A-Z0-9]{18}[0-9]{2}\z/
 
     def self.valid?(value)
       value.to_s.match?(REGEX) && Mod97.remainder(value) == 1
     end
+
+    # @param record [ActiveModel::Validations]
 
     def validate(record)
       field_name = options[:field_name] || :lei
@@ -97,11 +118,14 @@ module SEPA
 
   # Structured creditor reference (ISO 11649), e.g. "RF18539007547034".
   class CreditorReferenceValidator < ActiveModel::Validator
+    # Format check.
     REGEX = /\ARF[0-9]{2}[A-Z0-9]{1,21}\z/
 
     def self.valid?(value)
       value.to_s.match?(REGEX) && Mod97.remainder(value[4..] + value[0, 4]) == 1
     end
+
+    # @param record [ActiveModel::Validations]
 
     def validate(record)
       field_name = options[:field_name] || :creditor_reference
@@ -114,7 +138,10 @@ module SEPA
 
   # Unique end-to-end transaction reference, a UUID version 4.
   class UETRValidator < ActiveModel::Validator
+    # Format check.
     REGEX = /\A[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\z/
+
+    # @param record [ActiveModel::Validations]
 
     def validate(record)
       field_name = options[:field_name] || :uetr

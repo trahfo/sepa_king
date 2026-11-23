@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
 module SEPA
+  # Base class of SEPA::DirectDebit and SEPA::CreditTransfer: an account
+  # holder plus transactions grouped into payment information blocks.
   class Message
     include ActiveModel::Validations
     include Builders
+    include Introspection
+    include DocumentBuilders
 
     attr_reader :account, :grouped_transactions, :initiating_party
 
@@ -37,36 +41,38 @@ module SEPA
       @grouped_transactions[transaction_group(transaction)] << transaction
     end
 
+    # @return [Array<Transaction>] all transactions of the message
     def transactions
       grouped_transactions.values.flatten
     end
 
+    # Builds the XML document.
+    #
     # @param schema_name [String] one of +known_schemas+. Defaults to the first
     #   known schema (the ISO 2009 version); this default will change to the
     #   ISO 2019 version in 1.0, so pass the schema explicitly.
     # @param profile [Symbol, nil] validation profile of the schema, e.g. :dk
     #   (default) or :epc for the 2019 versions; see SEPA::Schema
+    # @param pretty [Boolean] indented output (default) or compact XML without
+    #   whitespace between elements
+    # @param validate [Boolean] check the document against the XSD (default).
+    #   Only switch this off for benchmarks; an invalid file is rejected by the bank.
     # @return [String] xml
-    def to_xml(schema_name = nil, profile: nil)
+    # @raise [SEPA::Error] if the message is invalid, incompatible with the
+    #   schema or rejected by the XSD
+    def to_xml(schema_name = nil, profile: nil, pretty: true, validate: true)
       schema_name ||= default_schema_name
-      raise SEPA::Error, errors.full_messages.join("\n") unless valid?
-
+      validate!
       schema = resolve_schema(schema_name, profile)
       raise SEPA::Error, "Incompatible with schema #{schema}!" unless schema_compatible?(schema_name, profile: profile)
 
-      builder = Nokogiri::XML::Builder.new(encoding: 'UTF-8') do |builder|
-        builder.Document(schema.document_attributes) do
-          builder.__send__(xml_main_tag) do
-            build_group_header(builder, schema)
-            build_payment_informations(builder, schema)
-          end
-        end
-      end
-
-      validate_final_document!(builder.doc, schema)
-      builder.to_xml
+      document = build_document(schema)
+      validate_final_document!(document, schema) if validate
+      pretty ? document.to_xml : document.to_xml(save_with: Nokogiri::XML::Node::SaveOptions::AS_XML)
     end
 
+    # @param selected_transactions [Array<Transaction>]
+    # @return [BigDecimal] sum of the amounts
     def amount_total(selected_transactions = transactions)
       selected_transactions.inject(0) { |sum, t| sum + t.amount }
     end
@@ -120,6 +126,7 @@ module SEPA
       end
     end
 
+    # @return [Array<String>] the ids of all payment information blocks
     def batches
       grouped_transactions.keys.collect { |group| payment_information_identification(group) }
     end
@@ -151,22 +158,6 @@ module SEPA
         self.class.default_schema_warned = true
       end
       known_schemas.first
-    end
-
-    def build_group_header(builder, schema)
-      builder.GrpHdr do
-        builder.MsgId(message_identification)
-        builder.CreDtTm(creation_date_time)
-        builder.NbOfTxs(transactions.length)
-        builder.CtrlSum('%.2f' % amount_total)
-        builder.InitgPty do
-          if initiating_party
-            build_party(builder, initiating_party, schema)
-          else
-            build_default_initiating_party(builder, account)
-          end
-        end
-      end
     end
 
     # Unique and consecutive identifier (used for the <PmntInf> blocks)

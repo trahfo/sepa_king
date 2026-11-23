@@ -1,0 +1,262 @@
+# Public API of sepa_king. Checked with `bundle exec rake rbs`.
+module SEPA
+  VERSION: String
+
+  PAIN_008_001_02: String
+  PAIN_008_001_08: String
+  PAIN_008_002_02: String
+  PAIN_008_003_02: String
+  PAIN_001_001_03: String
+  PAIN_001_001_09: String
+  PAIN_001_002_03: String
+  PAIN_001_003_03: String
+  PAIN_001_001_03_CH_02: String
+  NON_EEA_SEPA_COUNTRIES: Array[String]
+
+  type address_input = Address | Hash[Symbol, untyped] | nil
+  type party_input = Party | Hash[Symbol, untyped] | String | nil
+  type date_input = Date | Time | DateTime
+
+  def self.configuration: () -> Configuration
+  def self.configure: () { (Configuration) -> void } -> void
+  def self.reset_configuration!: () -> Configuration
+
+  class Error < RuntimeError
+  end
+
+  class ValidationError < Error
+    attr_reader errors: Array[String]
+    def initialize: (Array[String] errors) -> void
+  end
+
+  class CharacterError < ArgumentError
+  end
+
+  class Configuration
+    CHARSETS: Array[Symbol]
+    attr_reader charset: Symbol
+    attr_accessor strict_charset: bool
+    def charset=: (Symbol value) -> Symbol
+  end
+
+  module Text
+    def self.convert: (untyped value, ?charset: Symbol, ?strict: bool) -> String?
+    def self.truncate: (String? value, Integer length) -> String?
+  end
+
+  module CreditorReference
+    def self.valid?: (String? reference) -> bool
+    def self.generate: (String base) -> String
+    def self.normalize: (String? reference) -> String
+  end
+
+  class Schema
+    FEATURES: Array[Symbol]
+    attr_reader name: String
+    attr_reader profile: Symbol
+    attr_reader family: Symbol
+    attr_reader namespace: String
+    attr_reader xsd_file: String
+    attr_reader features: Array[Symbol]
+
+    def self.register: (String name, ?profile: Symbol, **untyped) -> Schema
+    def self.[]: (String name, ?Symbol? profile) -> Schema
+    def self.resolve: (Schema | String schema_or_name, ?Symbol? profile) -> Schema
+    def self.registered?: (String name) -> bool
+    def self.profiles: (String name) -> Array[Symbol]
+    def self.all: () -> Array[Schema]
+
+    def supports?: (Symbol feature) -> bool
+    def iso2019?: () -> bool
+    def bic_tag: () -> Symbol
+    def document_attributes: () -> Hash[Symbol, String]
+    def xsd: () -> untyped
+    def validate: (untyped document) -> Array[String]
+    def to_s: () -> String
+  end
+
+  class Address
+    POSTAL_ADDRESS_24: Hash[Symbol, [Symbol, Integer]]
+    POSTAL_ADDRESS_6: Array[Symbol]
+    ADDRESS_LINES: Array[Symbol]
+    ATTRIBUTES: Array[Symbol]
+
+    attr_accessor department: String?
+    attr_accessor sub_department: String?
+    attr_accessor street_name: String?
+    attr_accessor building_number: String?
+    attr_accessor building_name: String?
+    attr_accessor floor: String?
+    attr_accessor post_box: String?
+    attr_accessor room: String?
+    attr_accessor post_code: String?
+    attr_accessor town_name: String?
+    attr_accessor town_location_name: String?
+    attr_accessor district_name: String?
+    attr_accessor country_sub_division: String?
+    attr_accessor country_code: String?
+    attr_accessor address_line1: String?
+    attr_accessor address_line2: String?
+
+    def initialize: (?Hash[Symbol, untyped] attributes) -> void
+    def self.coerce: (address_input value) -> Address?
+    def address_lines: () -> Array[String]
+    def structured?: () -> bool
+    def hybrid?: () -> bool
+    def schema_compatible?: (Schema schema) -> bool
+    def valid?: (?untyped context) -> bool
+  end
+
+  class CreditorAddress < Address
+  end
+
+  class DebtorAddress < Address
+  end
+
+  class PartyIdentification
+    TYPES: Array[Symbol]
+    attr_reader type: Symbol?
+    attr_accessor bic: String?
+    attr_accessor lei: String?
+    attr_accessor id: String?
+    attr_accessor scheme_code: String?
+    attr_accessor scheme_proprietary: String?
+    attr_accessor issuer: String?
+
+    def initialize: (?Hash[Symbol, untyped] attributes) -> void
+    def self.coerce: (PartyIdentification | Hash[Symbol, untyped] | nil value) -> PartyIdentification?
+    def type=: (Symbol | String | nil value) -> void
+    def organisation?: () -> bool
+    def schema_compatible?: (Schema schema) -> bool
+  end
+
+  class Party
+    attr_accessor name: String?
+    attr_reader address: Address?
+    attr_reader identification: PartyIdentification?
+
+    def initialize: (?Hash[Symbol, untyped] attributes) -> void
+    def self.coerce: (party_input value) -> Party?
+    def address=: (address_input value) -> void
+    def identification=: (PartyIdentification | Hash[Symbol, untyped] | nil value) -> void
+    def schema_compatible?: (Schema schema) -> bool
+  end
+
+  class Account
+    attr_accessor name: String?
+    attr_accessor iban: String?
+    attr_accessor bic: String?
+    attr_reader address: Address?
+
+    def initialize: (?Hash[Symbol, untyped] attributes) -> void
+    def address=: (address_input value) -> void
+    def valid?: (?untyped context) -> bool
+  end
+
+  class CreditorAccount < Account
+    attr_accessor creditor_identifier: String?
+  end
+
+  class DebtorAccount < Account
+  end
+
+  class Transaction
+    DEFAULT_REQUESTED_DATE: Date
+
+    attr_accessor name: String?
+    attr_accessor iban: String?
+    attr_accessor bic: String?
+    attr_accessor amount: BigDecimal?
+    attr_accessor instruction: String?
+    attr_accessor reference: String?
+    attr_accessor remittance_information: String?
+    attr_accessor requested_date: date_input
+    attr_accessor batch_booking: bool
+    attr_accessor currency: String
+    attr_accessor purpose_code: String?
+    attr_reader debtor_address: Address?
+    attr_reader creditor_address: Address?
+    attr_reader ultimate_debtor: Party?
+    attr_reader ultimate_creditor: Party?
+    attr_reader creditor_reference: String?
+
+    def initialize: (?Hash[Symbol, untyped] attributes) -> void
+    def debtor_address=: (address_input value) -> void
+    def creditor_address=: (address_input value) -> void
+    def ultimate_debtor=: (party_input value) -> void
+    def ultimate_creditor=: (party_input value) -> void
+    def creditor_reference=: (String? value) -> void
+    def requested_time?: () -> bool
+    def to_h: () -> Hash[Symbol, untyped]
+    def valid?: (?untyped context) -> bool
+  end
+
+  class DirectDebitTransaction < Transaction
+    SEQUENCE_TYPES: Array[String]
+    LOCAL_INSTRUMENTS: Array[String]
+
+    attr_accessor mandate_id: String?
+    attr_accessor mandate_date_of_signature: Date?
+    attr_accessor local_instrument: String
+    attr_accessor sequence_type: String
+    attr_accessor creditor_account: CreditorAccount?
+    attr_accessor original_debtor_account: String?
+    attr_accessor same_mandate_new_debtor_agent: bool?
+    attr_accessor original_creditor_account: CreditorAccount?
+    attr_accessor original_mandate_id: String?
+    attr_accessor category_purpose: String?
+
+    def amendment_informations?: () -> untyped
+    def schema_compatible?: (Schema | String schema) -> bool
+  end
+
+  class CreditTransferTransaction < Transaction
+    LOCAL_INSTRUMENTS: Array[String]
+    INSTRUCTION_PRIORITIES: Array[String]
+    CHARGE_BEARERS: Array[String]
+
+    attr_accessor service_level: String?
+    attr_accessor category_purpose: String?
+    attr_accessor local_instrument: String?
+    attr_accessor instruction_priority: String?
+    attr_accessor charge_bearer: String?
+    attr_accessor debtor_account: DebtorAccount?
+    attr_accessor uetr: String?
+
+    def instant?: () -> bool
+    def schema_compatible?: (Schema | String schema) -> bool
+  end
+
+  class Message
+    attr_reader account: Account
+    attr_reader grouped_transactions: Hash[untyped, Array[Transaction]]
+    attr_reader initiating_party: Party?
+
+    def known_schemas: () -> Array[String]
+
+    def initialize: (?Hash[Symbol, untyped] account_options) -> void
+    def add_transaction: (Hash[Symbol, untyped] options) -> Array[Transaction]
+    def transactions: () -> Array[Transaction]
+    def to_xml: (?String? schema_name, ?profile: Symbol?, ?pretty: bool, ?validate: bool) -> String
+    def validate!: () -> true
+    def valid?: (?untyped context) -> bool
+    def schema_compatible?: (String schema_name, ?profile: Symbol?) -> bool
+    def amount_total: (?Array[Transaction] selected_transactions) -> BigDecimal
+    def batches: () -> Array[String]
+    def batch_id: (String transaction_reference) -> String?
+    def batches_summary: () -> Array[Hash[Symbol, untyped]]
+    def to_h: () -> Hash[Symbol, untyped]
+    def message_identification: () -> String
+    def message_identification=: (String value) -> String
+    def creation_date_time: () -> String
+    def creation_date_time=: (String value) -> String
+  end
+
+  class DirectDebit < Message
+    attr_reader account: CreditorAccount
+  end
+
+  class CreditTransfer < Message
+    attr_reader account: DebtorAccount
+  end
+end

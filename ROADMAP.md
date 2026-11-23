@@ -10,13 +10,14 @@
 | M0 Modernise tooling | ✅ merged (trahfo/sepa_king#1) |
 | M1 New formats | ✅ released as `v0.15.0` on the fork |
 | M2 2019 data model | ✅ released as `v0.16.0` on the fork |
-| M3 Text, DX, docs | in progress |
+| M3 Text, DX, docs | ✅ released as `v0.17.0` on the fork |
 | M4 – M5 | open (after upstream answers #124) |
 
 Deviations from the M1 plan, decided during implementation:
 - **Hybrid addresses deferred to M2.** The vendored DK GBIC_4 XSDs (from #117) allow only structured addresses (`TwnNm` + `Ctry`, `AdrLine` forbidden). M1 therefore supports `:structured` (and the 2009 free-text form for old schemas). Hybrid needs a second XSD profile (generic ISO / newer DK TVS), planned as `to_xml(schema, profile:)` in M2.
 - **No extra amount bounds.** Every SEPA XSD already caps the amount; a Ruby-side check would only have changed the error class for existing callers.
 - **M2:** hybrid addresses are implemented as the `:epc` profile (generic ISO XSD from iso20022.org + EPC rules in Ruby); the DK GBIC_4 subset stays the default `:dk` profile. The DK subset forbids addresses on initiating/ultimate parties and UETR, so those need `:epc`. The non-EEA country list is a constant to keep in sync with the EPC list.
+- **M3:** types are checked with `rbs validate` (signatures well-formed and complete for the public API) instead of `steep check`, which would need type stubs for ActiveModel's validation DSL. `to_xml(io:)` streaming is not implemented: `pretty: false` covers file size, and memory was not a problem in practice. The default charset keeps today's output and only transliterates letters that used to be dropped.
 - **Injectable clock / message id** already existed (`creation_date_time=`, `message_identification=`); the golden suite uses them.
 
 ---

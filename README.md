@@ -1,4 +1,4 @@
-# Ruby gem for creating SEPA XML files
+# sepa_king — SEPA XML for Ruby
 
 [![CI](https://github.com/trahfo/sepa_king/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/trahfo/sepa_king/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/trahfo/sepa_king/branch/master/graph/badge.svg)](https://codecov.io/gh/trahfo/sepa_king)
@@ -8,12 +8,16 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.txt)
 [![Docs](https://img.shields.io/badge/docs-rubydoc.info-blue.svg)](https://www.rubydoc.info/gems/sepa_king)
 
-We love building payment applications! So after developing the [DTAUS library for Ruby](https://github.com/salesking/king_dtaus) we move on with SEPA.
+Build **SEPA credit transfers** (pain.001) and **SEPA direct debits** (pain.008)
+in Ruby. The ISO 20022 versions 2019 and 2009 are supported. Every file is checked against the official XSD before
+you get it.
 
+* **Current formats:** `pain.008.001.08` and `pain.001.001.09`, required by German banks since November 2026
+* **The full 2019 data model:** structured and hybrid addresses, ultimate parties, LEI, RF creditor references, SEPA Instant, UETR
+* **EPC character set** with transliteration (é → e, Ø → O), optionally strict
+* **Safe to upgrade:** the XML for the 2009 schemas stays byte-for-byte identical (golden-file tests)
 
-## Features
-
-This gem implements the following two messages out of the ISO 20022 standard:
+## Supported messages
 
 | Message | ISO 2019 (current) | ISO 2009 (legacy) |
 |---|---|---|
@@ -34,35 +38,43 @@ sdd.to_xml(SEPA::PAIN_008_001_08, profile: :epc)  # generic ISO + EPC rules
 sdd.schema_compatible?(SEPA::PAIN_008_001_08, profile: :epc)
 ```
 
-BTW: **pain** is a shortcut for **Pa**yment **In**itiation.
-
 > **November 2026:** German banks no longer accept the 2009 versions
-> (`pain.001.001.03`, `pain.008.001.02`). Use `pain.001.001.09` / `pain.008.001.08`:
->
-> ```ruby
-> sdd.to_xml(SEPA::PAIN_008_001_08)
-> sct.to_xml(SEPA::PAIN_001_001_09)
-> ```
->
-> These schemas only accept **structured addresses**: if you pass an address,
-> it needs at least `town_name` and `country_code` and no `address_line1/2`.
-> Passing no address at all is fine. `to_xml` without an argument still uses
-> the 2009 version; this default changes in 1.0.
-
-
-## Requirements
-
-* Ruby 3.3 or newer (tested on 3.3, 3.4 and 4.0)
-* ActiveModel 7.2, 8.0 or 8.1
-* Nokogiri 1.16 or newer
-
+> (`pain.001.001.03`, `pain.008.001.02`). Use `SEPA::PAIN_001_001_09` /
+> `SEPA::PAIN_008_001_08`. These only accept structured addresses (with
+> `town_name` and `country_code`); sending no address is fine. `to_xml`
+> without a schema still uses the 2009 version; this default changes in 1.0.
 
 ## Installation
 
-    gem install sepa_king
+```ruby
+# Gemfile
+gem 'sepa_king'
+```
 
+Requires Ruby 3.3 or newer (tested on 3.3, 3.4 and 4.0), ActiveModel 7.2 – 8.1
+and Nokogiri 1.16 or newer.
 
-## Usage
+## Quick start
+
+```ruby
+require 'sepa_king'
+
+# Direct debit (Lastschrift)
+sdd = SEPA::DirectDebit.new(name: 'Gläubiger GmbH', iban: 'DE87200500001234567890',
+                            creditor_identifier: 'DE98ZZZ09999999999')
+sdd.add_transaction(name: 'Zahlemann & Söhne GbR', iban: 'DE21500500009876543210', amount: 39.99,
+                    mandate_id: 'K-02-2011-12345', mandate_date_of_signature: Date.new(2011, 1, 25),
+                    sequence_type: 'RCUR', remittance_information: 'Rechnung 2026-001')
+File.write('sdd.xml', sdd.to_xml(SEPA::PAIN_008_001_08))
+
+# Credit transfer (Überweisung)
+sct = SEPA::CreditTransfer.new(name: 'Schuldner GmbH', iban: 'DE87200500001234567890')
+sct.add_transaction(name: 'Telekomiker AG', iban: 'DE37112589611964645802', amount: 102.50,
+                    remittance_information: 'Rechnung vom 22.08.2013')
+File.write('sct.xml', sct.to_xml(SEPA::PAIN_001_001_09))
+```
+
+## Option reference
 
 How to create the XML for **Direct Debit Initiation** (in German: "Lastschriften")
 
@@ -302,7 +314,6 @@ The account holder's address goes into the message itself
 (`SEPA::DirectDebit.new(..., address: {...})` for the creditor,
 `SEPA::CreditTransfer.new(..., address: {...})` for the debtor).
 
-
 ## ISO 2019 features
 
 All of these are optional keys of `add_transaction` (or of `new` for the
@@ -354,6 +365,42 @@ Rules applied for the 2019 schemas:
 
 `schema_compatible?` tells you up front whether a message fits a schema/profile.
 
+## Recipes
+
+### Character set
+
+Text fields are converted to the character set allowed in SEPA messages
+(EPC217-08). By default German umlauts, `ß` and `& * $ %` are kept, other accented
+letters are transliterated, and anything else is dropped.
+
+```ruby
+SEPA.configure do |config|
+  config.charset = :epc_basic     # EPC basic Latin only: ä → a, ß → ss, & → +
+  config.strict_charset = true    # raise SEPA::CharacterError instead of dropping characters
+end
+
+SEPA::Text.convert('José Müller')              # => "Jose Müller"
+SEPA::Text.truncate('Müllerstraße 12', 8)      # => "Müllerst" (never splits a character)
+```
+
+### Checking a message before building XML
+
+```ruby
+sdd.validate!                       # raises SEPA::ValidationError (#errors) if invalid
+sdd.schema_compatible?(SEPA::PAIN_008_001_08)                 # => true / false
+sdd.batches_summary                 # => [{ id:, requested_date:, count:, amount: }, …]
+sdd.to_h                            # schema-independent Hash, e.g. for an audit log
+```
+
+### Large files
+
+```ruby
+sdd.to_xml(SEPA::PAIN_008_001_08, pretty: false)   # compact XML, no indentation
+```
+
+### Error messages in German
+
+The gem's own validation messages come in English and German (`I18n.locale = :de`).
 
 ## Validations
 
@@ -387,11 +434,28 @@ Also see:
 * [lib/sepa_king/validator.rb](https://github.com/salesking/sepa_king/blob/master/lib/sepa_king/validator.rb)
 * [lib/sepa_king/transaction/direct_debit_transaction.rb](https://github.com/salesking/sepa_king/blob/master/lib/sepa_king/transaction/direct_debit_transaction.rb)
 
+## Errors
 
-## Changelog
+| Class | Raised by | When |
+|---|---|---|
+| `ArgumentError` | `add_transaction` | invalid transaction (message lists all errors) |
+| `SEPA::CharacterError` (an `ArgumentError`) | attribute writers | strict charset and a character that cannot be converted |
+| `SEPA::ValidationError` (a `SEPA::Error`) | `validate!`, `to_xml` | invalid message; `#errors` has the messages |
+| `SEPA::Error` | `to_xml` | incompatible schema/profile or XSD violation |
 
-See [CHANGELOG.md](CHANGELOG.md).
+## Upgrading
 
+* **0.14 → 0.15:** no code change needed. Pass `SEPA::PAIN_008_001_08` / `SEPA::PAIN_001_001_09` to `to_xml` to produce the current formats, and make sure addresses are structured.
+* **0.15 → 0.16:** no code change needed. The 2019 schemas gained the `:epc` profile; `schema_compatible?` now also checks the non-EEA address rule.
+* **0.16 → 0.17:** no code change needed. Text fields transliterate accented letters instead of dropping them (`José` becomes `Jose`, not `Jos`).
+* **1.0 (planned):** `to_xml` without a schema will use the 2019 versions.
+
+## FAQ
+
+* **Which profile should I use?** The default `:dk`. It is the strictest subset and accepted by German and Austrian banks. Use `:epc` for hybrid addresses, UETR or non-SEPA credit transfers.
+* **What about Verification of Payee?** Your bank runs it on its own channels. pain.001.001.09 has no element for it.
+* **COR1?** It was merged into CORE in 2017. The 2019 schemas reject it, and the gem warns when you use it.
+* **Parsing bank responses** (pain.002, camt.053/054)? Use [sepa_file_parser](https://github.com/railslove/sepa_file_parser). **EBICS upload?** Use [epics](https://github.com/railslove/epics).
 
 ## Development
 
@@ -405,21 +469,32 @@ GOLDEN_UPDATE=1 bundle exec rspec spec/golden_spec.rb                 # after an
 `spec/golden/` holds the exact XML produced for a set of scenarios and every
 supported schema. Any change to the generated XML shows up as a diff there.
 
+The public API is typed in `sig/` (RBS) and documented with YARD:
+`bundle exec rake` runs the specs, RuboCop, `yard_audit` (100 % documented) and `rbs validate`.
 
-## Contributors
+## Contributing
 
-https://github.com/salesking/sepa_king/graphs/contributors
+See [CONTRIBUTING.md](CONTRIBUTING.md). Pull requests need passing CI and full test coverage.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) and the [roadmap](ROADMAP.md).
+
+## Credits
+
+Originally written by Georg Leciejewski (SalesKing) and Georg Ledermann, with many
+[contributors](https://github.com/salesking/sepa_king/graphs/contributors).
+The 2019 formats build on work by Tobias Schoknecht (salesking/sepa_king#117), and the
+character conversion follows the EPC table proposed in salesking/sepa_king#105.
 
 ## Resources
 
 * https://www.ebics.de/de/datenformate
 * EPC rulebooks and implementation guidelines: https://www.europeanpaymentscouncil.eu/what-we-do/epc-payment-schemes
-* SalesKing: http://salesking.eu
-
+* ISO 20022 message archive: https://www.iso20022.org/iso-20022-message-definitions
 
 ## License
 
-Released under the MIT license
+Released under the MIT license.
 
 Copyright (c) 2013-2022 Georg Leciejewski (SalesKing), Georg Ledermann (https://github.com/ledermann)

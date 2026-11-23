@@ -22,7 +22,7 @@ Gem::Specification.new do |s|
   }
 
   # Git-independent so the gem also builds from a source tarball.
-  s.files = Dir['lib/**/*.{rb,xsd}', 'README.md', 'CHANGELOG.md', 'LICENSE.txt']
+  s.files = Dir['lib/**/*.{rb,xsd,yml}', 'sig/**/*.rbs', 'README.md', 'CHANGELOG.md', 'LICENSE.txt']
   s.require_paths = ['lib']
 
   s.required_ruby_version = '>= 3.3'

@@ -21,6 +21,8 @@ module SEPA
       'RF%<check>02d%<base>s' % { check: check, base: base }
     end
 
+    # @param reference [String, nil]
+    # @return [String] without spaces, upper case
     def normalize(reference)
       reference.to_s.delete(' ').upcase
     end
