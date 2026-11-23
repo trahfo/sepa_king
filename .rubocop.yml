@@ -1,0 +1,43 @@
+inherit_from: .rubocop_todo.yml
+
+plugins:
+  - rubocop-performance
+  - rubocop-rake
+  - rubocop-rspec
+
+AllCops:
+  TargetRubyVersion: 3.3
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - 'gemfiles/vendor/**/*'
+    - 'vendor/**/*'
+    - 'coverage/**/*'
+    - 'pkg/**/*'
+
+Style/Documentation:
+  Enabled: false
+
+# The DSL mirrors the ISO 20022 tag names (builder.PmtInf, builder.CdtrAcct …).
+Naming/MethodName:
+  Exclude:
+    - 'lib/sepa_king/message.rb'
+    - 'lib/sepa_king/message/*.rb'
+
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - '*.gemspec'
+
+# Nested `describe :symbol` groups make described_class a Symbol in the legacy specs.
+RSpec/DescribedClass:
+  Enabled: false
+
+# '%.2f' % amount is the established style for ISO amounts.
+Style/FormatString:
+  EnforcedStyle: percent
+
+# "%{value} is invalid" is ActiveModel's error-message interpolation, not Kernel#format.
+Style/FormatStringToken:
+  Exclude:
+    - 'lib/**/*'
