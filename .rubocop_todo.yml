@@ -21,32 +21,28 @@ Lint/ConstantDefinitionInBlock:
 
 # Configuration parameters: AllowedMethods, AllowedPatterns, CountRepeatedAttributes.
 Metrics/AbcSize:
-  Max: 78
+  Max: 37
 
 # Configuration parameters: CountComments, CountAsOne, AllowedMethods, AllowedPatterns, inherit_mode.
 # AllowedMethods: refine
 Metrics/BlockLength:
-  Max: 52
+  Max: 28
 
 # Configuration parameters: CountComments, CountAsOne.
 Metrics/ClassLength:
-  Max: 161
+  Max: 136
 
 # Configuration parameters: AllowedMethods, AllowedPatterns.
 Metrics/CyclomaticComplexity:
-  Max: 13
+  Max: 12
 
 # Configuration parameters: CountComments, CountAsOne, AllowedMethods, AllowedPatterns.
 Metrics/MethodLength:
-  Max: 54
-
-# Configuration parameters: CountComments, CountAsOne.
-Metrics/ModuleLength:
-  Max: 131
+  Max: 30
 
 # Configuration parameters: AllowedMethods, AllowedPatterns.
 Metrics/PerceivedComplexity:
-  Max: 14
+  Max: 9
 
 # Configuration parameters: Prefixes, AllowedPatterns.
 # Prefixes: when, with, without
@@ -57,18 +53,6 @@ RSpec/ContextWording:
     - 'spec/direct_debit_spec.rb'
     - 'spec/direct_debit_transaction_spec.rb'
     - 'spec/transaction_spec.rb'
-
-# Configuration parameters: IgnoredMetadata.
-RSpec/DescribeClass:
-  Exclude:
-    - '**/spec/features/**/*'
-    - '**/spec/requests/**/*'
-    - '**/spec/routing/**/*'
-    - '**/spec/system/**/*'
-    - '**/spec/views/**/*'
-    - 'spec/edge_cases_spec.rb'
-    - 'spec/golden_spec.rb'
-    - 'spec/validation_spec.rb'
 
 RSpec/DescribeSymbol:
   Exclude:
@@ -129,23 +113,6 @@ RSpec/RepeatedDescription:
     - 'spec/direct_debit_spec.rb'
     - 'spec/transaction_spec.rb'
 
-# Configuration parameters: CustomTransform, IgnoreMethods, IgnoreMetadata, InflectorPath, EnforcedInflector.
-# SupportedInflectors: default, active_support
-RSpec/SpecFilePathFormat:
-  Exclude:
-    - '**/spec/routing/**/*'
-    - 'spec/account_spec.rb'
-    - 'spec/converter_spec.rb'
-    - 'spec/credit_transfer_spec.rb'
-    - 'spec/credit_transfer_transaction_spec.rb'
-    - 'spec/creditor_account_spec.rb'
-    - 'spec/debtor_account_spec.rb'
-    - 'spec/debtor_address_spec.rb'
-    - 'spec/direct_debit_spec.rb'
-    - 'spec/direct_debit_transaction_spec.rb'
-    - 'spec/message_spec.rb'
-    - 'spec/transaction_spec.rb'
-
 # This cop supports unsafe autocorrection (--autocorrect-all).
 # Configuration parameters: EnforcedStyle, EnforcedStyleForClasses, EnforcedStyleForModules.
 # SupportedStyles: nested, compact
@@ -171,7 +138,6 @@ Style/IfUnlessModifier:
   Exclude:
     - 'lib/sepa_king/converter.rb'
     - 'lib/sepa_king/message.rb'
-    - 'lib/sepa_king/message/credit_transfer.rb'
     - 'lib/sepa_king/message/direct_debit.rb'
 
 # This cop supports safe autocorrection (--autocorrect).

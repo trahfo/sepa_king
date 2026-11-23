@@ -5,7 +5,7 @@ module SEPA
     self.account_class = DebtorAccount
     self.transaction_class = CreditTransferTransaction
     self.xml_main_tag = 'CstmrCdtTrfInitn'
-    self.known_schemas = [PAIN_001_001_03, PAIN_001_001_03_CH_02, PAIN_001_003_03, PAIN_001_002_03]
+    self.known_schemas = [PAIN_001_001_03, PAIN_001_001_03_CH_02, PAIN_001_003_03, PAIN_001_002_03, PAIN_001_001_09]
 
     private
 
@@ -17,58 +17,64 @@ module SEPA
         category_purpose: transaction.category_purpose }
     end
 
-    def build_payment_informations(builder, schema_name)
+    def build_payment_informations(builder, schema)
       # Build a PmtInf block for every group of transactions
       grouped_transactions.each do |group, transactions|
         # All transactions with the same requested_date are placed into the same PmtInf block
         builder.PmtInf do
-          builder.PmtInfId(payment_information_identification(group))
-          builder.PmtMtd('TRF')
-          builder.BtchBookg(group[:batch_booking])
-          builder.NbOfTxs(transactions.length)
-          builder.CtrlSum('%.2f' % amount_total(transactions))
-          builder.PmtTpInf do
-            if group[:service_level]
-              builder.SvcLvl do
-                builder.Cd(group[:service_level])
-              end
-            end
-            if group[:category_purpose]
-              builder.CtgyPurp do
-                builder.Cd(group[:category_purpose])
-              end
-            end
-          end
-          builder.ReqdExctnDt(group[:requested_date].iso8601)
-          builder.Dbtr do
-            builder.Nm(account.name)
-          end
-          builder.DbtrAcct do
-            builder.Id do
-              builder.IBAN(account.iban)
-            end
-          end
-          builder.DbtrAgt do
-            builder.FinInstnId do
-              if account.bic
-                builder.BIC(account.bic)
-              elsif schema_name != PAIN_001_001_03_CH_02
-                builder.Othr do
-                  builder.Id('NOTPROVIDED')
-                end
-              end
-            end
-          end
+          build_payment_information_header(builder, group, transactions, schema)
+          build_debtor(builder, schema)
           builder.ChrgBr('SLEV') if group[:service_level]
 
           transactions.each do |transaction|
-            build_transaction(builder, transaction)
+            build_transaction(builder, transaction, schema)
           end
         end
       end
     end
 
-    def build_transaction(builder, transaction)
+    def build_payment_information_header(builder, group, transactions, schema)
+      builder.PmtInfId(payment_information_identification(group))
+      builder.PmtMtd('TRF')
+      builder.BtchBookg(group[:batch_booking])
+      builder.NbOfTxs(transactions.length)
+      builder.CtrlSum('%.2f' % amount_total(transactions))
+      build_payment_type_information(builder, group)
+      build_date(builder, :ReqdExctnDt, group[:requested_date], schema)
+    end
+
+    def build_payment_type_information(builder, group)
+      builder.PmtTpInf do
+        if group[:service_level]
+          builder.SvcLvl do
+            builder.Cd(group[:service_level])
+          end
+        end
+        if group[:category_purpose]
+          builder.CtgyPurp do
+            builder.Cd(group[:category_purpose])
+          end
+        end
+      end
+    end
+
+    def build_debtor(builder, schema)
+      builder.Dbtr do
+        build_party(builder, account.name, account.address, schema)
+      end
+      builder.DbtrAcct do
+        builder.Id do
+          builder.IBAN(account.iban)
+        end
+      end
+      builder.DbtrAgt do
+        # The Swiss schema leaves FinInstnId empty instead of NOTPROVIDED
+        build_financial_institution(builder, account.bic, schema,
+                                    not_provided: schema.name != PAIN_001_001_03_CH_02)
+      end
+    end
+
+    def build_transaction(builder, transaction, schema)
       builder.CdtTrfTxInf do
         builder.PmtId do
           builder.InstrId(transaction.instruction) if transaction.instruction.present?
@@ -79,39 +85,11 @@ module SEPA
         end
         if transaction.bic
           builder.CdtrAgt do
-            builder.FinInstnId do
-              builder.BIC(transaction.bic)
-            end
+            build_financial_institution(builder, transaction.bic, schema)
           end
         end
         builder.Cdtr do
-          builder.Nm(transaction.name)
-          if transaction.creditor_address
-            builder.PstlAdr do
-              # Only set the fields that are actually provided.
-              # StrtNm, BldgNb, PstCd, TwnNm provide a structured address
-              # separated into its individual fields.
-              # AdrLine provides the address in free format text.
-              # Both are currently allowed and the actual preference depends on the bank.
-              # Also the fields that are required legally may vary depending on the country
-              # or change over time.
-              builder.StrtNm transaction.creditor_address.street_name if transaction.creditor_address.street_name
-
-              if transaction.creditor_address.building_number
-                builder.BldgNb transaction.creditor_address.building_number
-              end
-
-              builder.PstCd transaction.creditor_address.post_code if transaction.creditor_address.post_code
-
-              builder.TwnNm transaction.creditor_address.town_name if transaction.creditor_address.town_name
-
-              builder.Ctry transaction.creditor_address.country_code if transaction.creditor_address.country_code
-
-              builder.AdrLine transaction.creditor_address.address_line1 if transaction.creditor_address.address_line1
-
-              builder.AdrLine transaction.creditor_address.address_line2 if transaction.creditor_address.address_line2
-            end
-          end
+          build_party(builder, transaction.name, transaction.creditor_address, schema)
         end
         builder.CdtrAcct do
           builder.Id do

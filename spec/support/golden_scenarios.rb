@@ -21,7 +21,9 @@ module GoldenScenarios
       'dd_b2b' => method(:dd_b2b),
       'ct_basic' => method(:ct_basic),
       'ct_chf' => method(:ct_chf),
-      'ct_no_bic' => method(:ct_no_bic)
+      'ct_no_bic' => method(:ct_no_bic),
+      'dd_structured' => method(:dd_structured),
+      'ct_structured' => method(:ct_structured)
     }
   end
 
@@ -150,6 +152,34 @@ module GoldenScenarios
   def ct_no_bic
     sct = stamp(ct_base(bic: nil), 'GOLDEN/CT/NOBIC')
     sct.add_transaction(ct_txn(bic: nil))
+    sct
+  end
+
+  STRUCTURED_ADDRESS = {
+    department: 'Buchhaltung', sub_department: 'Lastschriften', street_name: 'Hauptstraße',
+    building_number: '5a', building_name: 'Haus Nord', floor: '3', post_box: 'PF 12', room: '301',
+    post_code: '1010', town_name: 'Wien', town_location_name: 'Innere Stadt', district_name: 'Wien 1',
+    country_sub_division: 'W', country_code: 'AT'
+  }.freeze
+
+  # Structured addresses everywhere, as required by the ISO 2019 schemas.
+  def dd_structured
+    sdd = stamp(dd_base(bic: nil, address: { street_name: 'Ringstraße', building_number: '1',
+                                             post_code: '1010', town_name: 'Wien', country_code: 'AT' }),
+                'GOLDEN/DD/STRUCTURED')
+    sdd.add_transaction(dd_txn(sequence_type: 'RCUR', debtor_address: STRUCTURED_ADDRESS))
+    sdd.add_transaction(dd_txn(name: 'Ohne Adresse', bic: nil, reference: 'NOADR', sequence_type: 'RCUR'))
+    sdd.add_transaction(dd_txn(name: 'Nur Ort', reference: 'TOWN', sequence_type: 'RCUR',
+                               debtor_address: { town_name: 'Graz', country_code: 'AT' }))
+    sdd
+  end
+
+  def ct_structured
+    sct = stamp(ct_base(address: { street_name: 'Mustergasse', building_number: '12', post_code: '80331',
+                                   town_name: 'München', country_code: 'DE' }),
+                'GOLDEN/CT/STRUCTURED')
+    sct.add_transaction(ct_txn(category_purpose: 'SALA', creditor_address: STRUCTURED_ADDRESS))
+    sct.add_transaction(ct_txn(name: 'Ohne BIC', bic: nil, reference: 'NOBIC'))
     sct
   end
 end

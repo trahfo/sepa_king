@@ -41,3 +41,25 @@ Style/FormatString:
 Style/FormatStringToken:
   Exclude:
     - 'lib/**/*'
+
+# Symbols mirror ISO 20022 names (e.g. :postal_address_24 for PostalAddress24).
+Naming/VariableNumber:
+  CheckSymbols: false
+
+Metrics/ParameterLists:
+  CountKeywordArgs: false
+
+Metrics/ModuleLength:
+  Exclude:
+    - 'spec/support/**/*'
+
+# Specs live flat in spec/ (spec/address_spec.rb for SEPA::Address).
+RSpec/SpecFilePathFormat:
+  Enabled: false
+
+RSpec/DescribeClass:
+  Exclude:
+    - 'spec/golden_spec.rb'
+    - 'spec/iso2019_spec.rb'
+    - 'spec/validation_spec.rb'
+    - 'spec/edge_cases_spec.rb'

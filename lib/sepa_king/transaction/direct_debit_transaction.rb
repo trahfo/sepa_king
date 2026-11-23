@@ -12,8 +12,7 @@ module SEPA
                   :creditor_account,
                   :original_debtor_account,
                   :same_mandate_new_debtor_agent,
-                  :original_creditor_account,
-                  :debtor_address
+                  :original_creditor_account
 
     validates_with MandateIdentifierValidator, field_name: :mandate_id, message: '%{value} is invalid'
     validates_presence_of :mandate_date_of_signature
@@ -49,6 +48,10 @@ module SEPA
         currency == 'EUR'
       when PAIN_008_001_02
         true
+      when PAIN_008_001_08
+        %w[CORE B2B].include?(local_instrument) && currency == 'EUR' &&
+          address_compatible?(debtor_address, schema_name) &&
+          address_compatible?(creditor_account&.address, schema_name)
       end
     end
   end
