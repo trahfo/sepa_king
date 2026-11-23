@@ -1,7 +1,11 @@
 # frozen_string_literal: true
 
 module SEPA
+  # Declares attribute writers that normalise their input, e.g.
+  # +convert :name, to: :text+ (see SEPA::Text) or +to: :decimal+.
   module Converter
+    # @param attributes [Array<Symbol>] attribute names
+    # @param options [Hash] +:to+ => +:text+ or +:decimal+
     def convert(*attributes, options)
       include InstanceMethods
 
@@ -17,27 +21,15 @@ module SEPA
       end
     end
 
+    # The conversion functions used by the generated writers.
     module InstanceMethods
+      # @see SEPA::Text.convert
       def convert_text(value)
-        return unless value
-
-        value.to_s.
-          # Replace some special characters described as "Best practices" in Chapter 6.2 of this document:
-          # http://www.europeanpaymentscouncil.eu/index.cfm/knowledge-bank/epc-documents/sepa-requirements-for-an-extended-character-set-unicode-subset-best-practices/
-          tr('€', 'E')
-             .gsub('@', '(at)')
-             .tr('_', '-').
-
-          # Replace linebreaks by spaces
-          gsub(/\n+/, ' ').
-
-          # Remove all invalid characters
-          gsub(%r{[^a-zA-Z0-9ÄÖÜäöüß&*$%\ ':?,\-(+.)/]}, '').
-
-          # Remove leading and trailing spaces
-          strip
+        Text.convert(value)
       end
 
+      # @param value [Numeric, String, nil]
+      # @return [BigDecimal, nil] the positive amount rounded to two decimals, nil otherwise
       def convert_decimal(value)
         return unless value
 
