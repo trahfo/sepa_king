@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Ruby ${{ matrix.ruby }} / ActiveModel ${{ matrix.activemodel }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ['3.3', '3.4', '4.0']
+        activemodel: ['7.2', '8.0', '8.1']
+        experimental: [false]
+        include:
+          - ruby: head
+            activemodel: '8.1'
+            experimental: true
+          - ruby: jruby
+            activemodel: '8.1'
+            experimental: true
+    env:
+      BUNDLE_GEMFILE: gemfiles/Gemfile-activemodel-${{ matrix.activemodel }}.x
+      CI: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - name: RSpec
+        run: bundle exec rspec
+      - name: Upload coverage
+        if: matrix.ruby == '3.4' && matrix.activemodel == '8.1'
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage/coverage.xml
+          use_oidc: true
+          fail_ci_if_error: false
+    permissions:
+      contents: read
+      id-token: write
+
+  lint:
+    name: RuboCop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - run: bundle exec rubocop --parallel
+
+  build:
+    name: Gem build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - run: gem build sepa_king.gemspec --strict
