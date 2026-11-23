@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
 module SEPA
+  # Base class of SEPA::DirectDebitTransaction and SEPA::CreditTransferTransaction.
   class Transaction
     include ActiveModel::Validations
     extend Converter
 
+    # Placeholder for "as soon as possible".
     DEFAULT_REQUESTED_DATE = Date.new(1999, 1, 1).freeze
 
     attr_accessor :name,
@@ -36,7 +38,7 @@ module SEPA
     validates_length_of :purpose_code, within: 1..4, allow_nil: true
 
     validate do
-      errors.add(:creditor_reference, 'cannot be combined with remittance_information') if remittance_information && creditor_reference
+      errors.add(:creditor_reference, :sepa_combined_with_remittance_information) if remittance_information && creditor_reference
       %i[ultimate_debtor ultimate_creditor debtor_address creditor_address].each do |attribute|
         value = public_send(attribute)
         errors.add(attribute, value.errors.full_messages.join(', ')) if value && !value.valid?
@@ -79,6 +81,11 @@ module SEPA
       @creditor_reference = value && CreditorReference.normalize(value)
     end
 
+    # @return [Hash] the transaction's attributes (nested objects as hashes, without nil values)
+    def to_h
+      Serialization.to_h(self)
+    end
+
     # Requested date with a time of day (only for schemas with <DtTm>).
     def requested_time?
       requested_date.is_a?(Time) || requested_date.is_a?(DateTime)
@@ -102,13 +109,14 @@ module SEPA
       [ultimate_debtor, ultimate_creditor].compact.all? { |party| party.schema_compatible?(schema) }
     end
 
+    # @param min_requested_date [Date] earliest allowed date
     def validate_requested_date_after(min_requested_date)
       return unless requested_date.is_a?(Date) || requested_date.is_a?(Time)
 
       date = requested_date.to_date
       return unless date != DEFAULT_REQUESTED_DATE && date < min_requested_date
 
-      errors.add(:requested_date, "must be greater or equal to #{min_requested_date}, or nil")
+      errors.add(:requested_date, :sepa_too_early, date: min_requested_date)
     end
   end
 end
