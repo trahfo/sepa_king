@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-11-24
+
+### Fixed
+- Date validations (mandate signature not in the future, earliest requested date) use the application time zone via `Date.current` when ActiveSupport defines it (`SEPA.today`). Before, a mandate signed today in e.g. Europe/Vienna was rejected as "in the future" around midnight while the server clock (UTC) was still on the previous day.
+
 ## [0.17.0] - 2026-11-24
 
 ### Added

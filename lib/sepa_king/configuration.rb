@@ -44,6 +44,15 @@ module SEPA
       yield configuration
     end
 
+    # Today's date for date validations. Uses the application's time zone
+    # (Date.current, e.g. Rails' config.time_zone) when ActiveSupport defines
+    # it, so dates created in that zone are not rejected as being "in the
+    # future" while the system clock is still on the previous day.
+    # @return [Date]
+    def today
+      Date.respond_to?(:current) ? Date.current : Date.today
+    end
+
     # Restores the default configuration.
     def reset_configuration!
       @configuration = Configuration.new

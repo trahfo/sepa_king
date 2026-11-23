@@ -4,5 +4,5 @@
 # transfers and pain.008 direct debits) and validates them against their XSD.
 module SEPA
   # Gem version.
-  VERSION = '0.17.0'
+  VERSION = '0.17.1'
 end
