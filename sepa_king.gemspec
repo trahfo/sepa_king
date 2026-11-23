@@ -28,7 +28,7 @@ Gem::Specification.new do |s|
   s.required_ruby_version = '>= 3.3'
 
   s.add_dependency 'activemodel', '>= 7.2', '< 9'
-  s.add_dependency 'bigdecimal', '>= 3.1'
+  s.add_dependency 'bigdecimal', '>= 3.1', '< 5'
   s.add_dependency 'iban-tools', '~> 1.2'
-  s.add_dependency 'nokogiri', '>= 1.16'
+  s.add_dependency 'nokogiri', '>= 1.16', '< 2'
 end

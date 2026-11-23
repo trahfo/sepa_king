@@ -22,8 +22,9 @@ RSpec.describe 'Golden XML output' do
           rescue SEPA::Error => e
             # Some schemas pass schema_compatible? but are rejected by the XSD
             # (e.g. structured addresses in pain.008.003.02). The error is part
-            # of the recorded behaviour.
-            "ERROR: #{e.message}\n"
+            # of the recorded behaviour (the XSD parser's wording differs between
+            # libxml2 and JRuby's Xerces, so only the summary is recorded).
+            "ERROR: #{e.message[/\AIncompatible with schema [^:]+/]}\n"
           end
 
           File.write(path, xml) if ENV['GOLDEN_UPDATE'] || !File.exist?(path)
