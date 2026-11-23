@@ -63,3 +63,4 @@ RSpec/DescribeClass:
     - 'spec/iso2019_spec.rb'
     - 'spec/validation_spec.rb'
     - 'spec/edge_cases_spec.rb'
+    - 'spec/data_model_spec.rb'

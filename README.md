@@ -20,10 +20,19 @@ This gem implements the following two messages out of the ISO 20022 standard:
 | Credit Transfer Initiation | `pain.001.001.09` | `pain.001.001.03`, `pain.001.002.03`, `pain.001.003.03`, `pain.001.001.03.ch.02` |
 | Direct Debit Initiation | `pain.008.001.08` | `pain.008.001.02`, `pain.008.002.02`, `pain.008.003.02` |
 
-The 2019 versions are validated against the Technical Validation Subsets of the
-Deutsche Kreditwirtschaft (DFÜ-Abkommen Anlage 3, GBIC_4), the strictest
-EPC-conformant variant. Every generated file passes the XSD of its schema
-before it is returned.
+Every generated file passes the XSD of its schema before it is returned. The
+2019 versions come in two **profiles**:
+
+| Profile | XSD | Addresses | Extras |
+|---|---|---|---|
+| `:dk` (default) | Technical Validation Subset of the Deutsche Kreditwirtschaft (DFÜ-Abkommen Anlage 3, GBIC_4) | structured only | strictest variant, accepted by German and Austrian banks |
+| `:epc` | generic ISO 20022 schema + EPC rulebook rules in Ruby | structured or hybrid (town + country + up to two lines) | UETR, non-SEPA credit transfers, addresses on ultimate parties |
+
+```ruby
+sdd.to_xml(SEPA::PAIN_008_001_08)                 # :dk
+sdd.to_xml(SEPA::PAIN_008_001_08, profile: :epc)  # generic ISO + EPC rules
+sdd.schema_compatible?(SEPA::PAIN_008_001_08, profile: :epc)
+```
 
 BTW: **pain** is a shortcut for **Pa**yment **In**itiation.
 
@@ -292,6 +301,58 @@ false and `to_xml` raises `SEPA::Error`.
 The account holder's address goes into the message itself
 (`SEPA::DirectDebit.new(..., address: {...})` for the creditor,
 `SEPA::CreditTransfer.new(..., address: {...})` for the debtor).
+
+
+## ISO 2019 features
+
+All of these are optional keys of `add_transaction` (or of `new` for the
+initiating party). Hashes are turned into the matching objects.
+
+```ruby
+sdd = SEPA::DirectDebit.new(
+  name: 'Gläubiger GmbH', iban: 'DE87200500001234567890', creditor_identifier: 'DE98ZZZ09999999999',
+  # A service provider submitting on behalf of the creditor (<InitgPty>)
+  initiating_party: { name: 'Abrechnungsdienst GmbH', identification: { lei: '529900T8BM49AURSDO55' } }
+)
+
+sdd.add_transaction(
+  name: 'Zahlemann & Söhne GbR', iban: 'DE21500500009876543210', amount: 39.99,
+  mandate_id: 'K-02-2011-12345', mandate_date_of_signature: Date.new(2011, 1, 25),
+  sequence_type: 'RCUR',
+
+  # Structured creditor reference (ISO 11649) instead of remittance_information
+  creditor_reference: SEPA::CreditorReference.generate('2026001'),   # => "RF..."
+
+  # ExternalPurpose1Code / ExternalCategoryPurpose1Code
+  purpose_code: 'OTHR', category_purpose: 'OTHR',
+
+  # Parties on whose behalf the money moves (<UltmtDbtr>, <UltmtCdtr>)
+  ultimate_debtor:   { name: 'Max Mustermann', identification: { type: :private, id: '4711', scheme_proprietary: 'Kundennummer' } },
+  ultimate_creditor: 'Carsharing Verein',
+
+  # Mandate amendment: original mandate id (plus the existing original_* options)
+  original_mandate_id: 'K-01-2010-1'
+)
+
+sct.add_transaction(
+  name: 'Telekomiker AG', iban: 'DE37112589611964645802', amount: 102.50,
+  local_instrument: 'INST',                                   # SEPA Instant Credit Transfer
+  requested_date: Time.new(2026, 12, 1, 9, 30, 0, '+01:00'),  # <ReqdExctnDt><DtTm> in pain.001.001.09
+  uetr: SecureRandom.uuid,                                    # :epc profile only
+  instruction_priority: 'HIGH',                               # <InstrPrty>
+  charge_bearer: 'SLEV',                                      # DEBT, CRED, SHAR (non-SEPA) or SLEV
+  debtor_account: SEPA::DebtorAccount.new(name: 'Zweitkonto GmbH', iban: 'NL08RABO0135742099')  # other debtor account
+)
+```
+
+Rules applied for the 2019 schemas:
+* Addresses must be structured (`:dk`) or structured/hybrid (`:epc`); `town_name` and `country_code` are mandatory.
+* For a counterparty in a non-EEA SEPA country (`SEPA::NON_EEA_SEPA_COUNTRIES`, e.g. CH, GB) the debtor (SDD) or creditor (SCT) address is mandatory.
+* `COR1` is not accepted (merged into `CORE` in 2017); using it prints a deprecation warning.
+* `:dk` does not allow mixing SCT and SCT Inst in one message, nor addresses on initiating/ultimate parties.
+* An LEI requires a 2019 schema.
+
+`schema_compatible?` tells you up front whether a message fits a schema/profile.
 
 
 ## Validations

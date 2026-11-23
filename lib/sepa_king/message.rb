@@ -5,18 +5,27 @@ module SEPA
     include ActiveModel::Validations
     include Builders
 
-    attr_reader :account, :grouped_transactions
+    attr_reader :account, :grouped_transactions, :initiating_party
 
     validates_presence_of :transactions
     validate do |record|
       record.errors.add(:account, record.account.errors.full_messages) unless record.account.valid?
+      if initiating_party && !initiating_party.valid?
+        record.errors.add(:initiating_party, initiating_party.errors.full_messages.join(', '))
+      end
     end
 
     class_attribute :account_class, :transaction_class, :xml_main_tag, :known_schemas
     class_attribute :default_schema_warned, instance_accessor: false, default: false
 
+    # @param account_options [Hash] attributes of the account holder (creditor
+    #   of a direct debit, debtor of a credit transfer). The optional key
+    #   +:initiating_party+ (Party, Hash or name) sets a different initiating
+    #   party, e.g. a service provider submitting on behalf of the account holder.
     def initialize(account_options = {})
       @grouped_transactions = {}
+      account_options = account_options.dup
+      @initiating_party = Party.coerce(account_options.delete(:initiating_party))
       @account = account_class.new(account_options)
     end
 
@@ -35,17 +44,20 @@ module SEPA
     # @param schema_name [String] one of +known_schemas+. Defaults to the first
     #   known schema (the ISO 2009 version); this default will change to the
     #   ISO 2019 version in 1.0, so pass the schema explicitly.
+    # @param profile [Symbol, nil] validation profile of the schema, e.g. :dk
+    #   (default) or :epc for the 2019 versions; see SEPA::Schema
     # @return [String] xml
-    def to_xml(schema_name = nil)
+    def to_xml(schema_name = nil, profile: nil)
       schema_name ||= default_schema_name
       raise SEPA::Error, errors.full_messages.join("\n") unless valid?
-      raise SEPA::Error, "Incompatible with schema #{schema_name}!" unless schema_compatible?(schema_name)
 
-      schema = Schema[schema_name]
+      schema = resolve_schema(schema_name, profile)
+      raise SEPA::Error, "Incompatible with schema #{schema}!" unless schema_compatible?(schema_name, profile: profile)
+
       builder = Nokogiri::XML::Builder.new(encoding: 'UTF-8') do |builder|
         builder.Document(schema.document_attributes) do
           builder.__send__(xml_main_tag) do
-            build_group_header(builder)
+            build_group_header(builder, schema)
             build_payment_informations(builder, schema)
           end
         end
@@ -59,14 +71,12 @@ module SEPA
       selected_transactions.inject(0) { |sum, t| sum + t.amount }
     end
 
-    def schema_compatible?(schema_name)
-      raise ArgumentError, "Schema #{schema_name} is unknown!" unless known_schemas.include?(schema_name)
+    def schema_compatible?(schema_name, profile: nil)
+      schema = resolve_schema(schema_name, profile)
+      return false unless parties_compatible?(schema)
+      return false if schema.supports?(:uniform_local_instrument) && local_instruments.size > 1
 
-      schema = Schema[schema_name]
-      return false if schema.supports?(:account_bic_required) && account.bic.blank?
-      return false unless account.address.nil? || account.address.schema_compatible?(schema)
-
-      transactions.all? { |t| t.schema_compatible?(schema_name) }
+      transactions.all? { |t| t.schema_compatible?(schema) }
     end
 
     # Set unique identifer for the message
@@ -116,6 +126,23 @@ module SEPA
 
     private
 
+    def resolve_schema(schema_name, profile)
+      raise ArgumentError, "Schema #{schema_name} is unknown!" unless known_schemas.include?(schema_name)
+
+      Schema[schema_name, profile]
+    end
+
+    # Account holder and initiating party
+    def parties_compatible?(schema)
+      return false if schema.supports?(:account_bic_required) && account.bic.blank?
+
+      [account.address, initiating_party].compact.all? { |value| value.schema_compatible?(schema) }
+    end
+
+    def local_instruments
+      transactions.map(&:local_instrument).uniq
+    end
+
     def default_schema_name
       unless self.class.default_schema_warned
         warn "[sepa_king] #{self.class.name}#to_xml without a schema uses #{known_schemas.first}. " \
@@ -126,22 +153,17 @@ module SEPA
       known_schemas.first
     end
 
-    def build_group_header(builder)
+    def build_group_header(builder, schema)
       builder.GrpHdr do
         builder.MsgId(message_identification)
         builder.CreDtTm(creation_date_time)
         builder.NbOfTxs(transactions.length)
         builder.CtrlSum('%.2f' % amount_total)
         builder.InitgPty do
-          builder.Nm(account.name)
-          if account.respond_to? :creditor_identifier
-            builder.Id do
-              builder.OrgId do
-                builder.Othr do
-                  builder.Id(account.creditor_identifier)
-                end
-              end
-            end
+          if initiating_party
+            build_party(builder, initiating_party, schema)
+          else
+            build_default_initiating_party(builder, account)
           end
         end
       end

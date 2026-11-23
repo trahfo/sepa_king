@@ -3,7 +3,7 @@
 RSpec.describe SEPA::Schema do
   it 'knows every schema constant' do
     names = SEPA.constants.grep(/\APAIN_/).map { |c| SEPA.const_get(c) }
-    expect(described_class.all.map(&:name)).to match_array(names)
+    expect(described_class.all.map(&:name).uniq).to match_array(names)
   end
 
   it 'raises for an unknown schema' do
@@ -27,7 +27,8 @@ RSpec.describe SEPA::Schema do
     it { expect(schema.bic_tag).to eq(:BICFI) }
     it { expect(schema).to be_iso2019 }
     it { expect(schema).to be_supports(:structured_address) }
-    it { expect(schema.to_s).to eq('pain.008.001.08') }
+    it { expect(schema.to_s).to eq('pain.008.001.08 (dk)') }
+    it { expect(schema.profile).to eq(:dk) }
 
     it 'builds the document attributes' do
       expect(schema.document_attributes).to eq(

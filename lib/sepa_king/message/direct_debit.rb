@@ -2,6 +2,8 @@
 
 module SEPA
   class DirectDebit < Message
+    include MandateBuilders
+
     self.account_class = CreditorAccount
     self.transaction_class = DirectDebitTransaction
     self.xml_main_tag = 'CstmrDrctDbtInitn'
@@ -21,7 +23,8 @@ module SEPA
         local_instrument: transaction.local_instrument,
         sequence_type: transaction.sequence_type,
         batch_booking: transaction.batch_booking,
-        account: transaction.creditor_account || account }
+        account: transaction.creditor_account || account,
+        category_purpose: transaction.category_purpose }
     end
 
     def build_payment_informations(builder, schema)
@@ -56,13 +59,18 @@ module SEPA
           builder.Cd(group[:local_instrument])
         end
         builder.SeqTp(group[:sequence_type])
+        if group[:category_purpose]
+          builder.CtgyPurp do
+            builder.Cd(group[:category_purpose])
+          end
+        end
       end
       builder.ReqdColltnDt(group[:requested_date].iso8601)
     end
 
     def build_creditor(builder, account, schema)
       builder.Cdtr do
-        build_party(builder, account.name, account.address, schema)
+        build_name_and_address(builder, account.name, account.address, schema)
       end
       builder.CdtrAcct do
         builder.Id do
@@ -74,82 +82,29 @@ module SEPA
       end
     end
 
-    # <Id> of a creditor scheme identification (Gläubiger-ID)
-    def build_creditor_scheme_identification(builder, creditor_identifier)
-      builder.Id do
-        builder.PrvtId do
-          builder.Othr do
-            builder.Id(creditor_identifier)
-            builder.SchmeNm do
-              builder.Prtry('SEPA')
-            end
-          end
-        end
-      end
-    end
-
-    def build_amendment_informations(builder, transaction)
-      builder.AmdmntInd(true)
-      builder.AmdmntInfDtls do
-        if transaction.original_debtor_account
-          builder.OrgnlDbtrAcct do
-            builder.Id do
-              builder.IBAN(transaction.original_debtor_account)
-            end
-          end
-        elsif transaction.same_mandate_new_debtor_agent
-          builder.OrgnlDbtrAgt do
-            builder.FinInstnId do
-              builder.Othr do
-                builder.Id('SMNDA')
-              end
-            end
-          end
-        end
-        build_original_creditor_scheme(builder, transaction.original_creditor_account)
-      end
-    end
-
-    def build_original_creditor_scheme(builder, original_creditor_account)
-      return unless original_creditor_account
-
-      builder.OrgnlCdtrSchmeId do
-        builder.Nm(original_creditor_account.name) if original_creditor_account.name
-        if original_creditor_account.creditor_identifier
-          build_creditor_scheme_identification(builder, original_creditor_account.creditor_identifier)
-        end
-      end
-    end
-
     def build_transaction(builder, transaction, schema)
       builder.DrctDbtTxInf do
-        builder.PmtId do
-          builder.InstrId(transaction.instruction) if transaction.instruction.present?
-          builder.EndToEndId(transaction.reference)
-        end
+        build_payment_identification(builder, transaction)
         builder.InstdAmt('%.2f' % transaction.amount, Ccy: transaction.currency)
-        builder.DrctDbtTx do
-          builder.MndtRltdInf do
-            builder.MndtId(transaction.mandate_id)
-            builder.DtOfSgntr(transaction.mandate_date_of_signature.iso8601)
-            build_amendment_informations(builder, transaction) if transaction.amendment_informations?
-          end
-        end
-        builder.DbtrAgt do
-          build_financial_institution(builder, transaction.bic, schema)
-        end
-        builder.Dbtr do
-          build_party(builder, transaction.name, transaction.debtor_address, schema)
-        end
-        builder.DbtrAcct do
-          builder.Id do
-            builder.IBAN(transaction.iban)
-          end
-        end
-        if transaction.remittance_information
-          builder.RmtInf do
-            builder.Ustrd(transaction.remittance_information)
-          end
+        build_mandate_related_information(builder, transaction)
+        build_party_element(builder, :UltmtCdtr, transaction.ultimate_creditor, schema)
+        build_debtor(builder, transaction, schema)
+        build_party_element(builder, :UltmtDbtr, transaction.ultimate_debtor, schema)
+        build_purpose(builder, transaction)
+        build_remittance_information(builder, transaction)
+      end
+    end
+
+    def build_debtor(builder, transaction, schema)
+      builder.DbtrAgt do
+        build_financial_institution(builder, transaction.bic, schema)
+      end
+      builder.Dbtr do
+        build_name_and_address(builder, transaction.name, transaction.debtor_address, schema)
+      end
+      builder.DbtrAcct do
+        builder.Id do
+          builder.IBAN(transaction.iban)
         end
       end
     end

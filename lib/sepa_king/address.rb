@@ -45,7 +45,7 @@ module SEPA
 
       validates_length_of attribute, maximum: maximum
     end
-    validates_length_of :country_code, is: 2
+    validates_length_of :country_code, is: 2, allow_nil: true
     validates_length_of :address_line1, maximum: 70
     validates_length_of :address_line2, maximum: 70
 
@@ -73,9 +73,21 @@ module SEPA
       town_name.present? && country_code.present? && address_lines.empty?
     end
 
-    # The 2019 schemas only accept structured addresses.
+    # Town and country present, at most two address lines (EPC "hybrid" address).
+    def hybrid?
+      town_name.present? && country_code.present?
+    end
+
+    # The 2019 schemas only accept structured (DK profile) or structured and
+    # hybrid (EPC profile) addresses.
     def schema_compatible?(schema)
-      !schema.supports?(:structured_address) || structured?
+      if schema.supports?(:structured_address)
+        structured?
+      elsif schema.supports?(:hybrid_address)
+        hybrid?
+      else
+        true
+      end
     end
   end
 end
